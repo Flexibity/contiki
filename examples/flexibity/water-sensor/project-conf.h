@@ -1,7 +1,5 @@
 /*
- * Copyright (c) 2012, Maxim Osipov <maxim.osipov@gmail.com>
- * Copyright (c) 2010, Mariano Alvira <mar@devl.org> and other contributors
- * to the MC1322x project (http://mc1322x.devl.org)
+ * Copyright (c) 2010, Swedish Institute of Computer Science.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,37 +26,26 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * This file is part of libmc1322x: see http://mc1322x.devl.org
- * for details. 
- *
  *
  */
 
-#ifndef BOARD_FLEXIBITY_H
-#define BOARD_FLEXIBITY_H
+#ifndef __PROJECT_RPL_WEB_CONF_H__
+#define __PROJECT_RPL_WEB_CONF_H__
 
-#define GPIO_LED_RED   GPIO_09
-#define GPIO_LED_GREEN GPIO_08
-#define GPIO_LED_BLUE  GPIO_43	/* don't have a blue LED so we use IO43 */
-
-/* old defs. don't use these */
-/* remove these someday */
-#define LED_RED   8
-#define LED_GREEN 9
-#define LED_BLUE  43	/* don't have a blue LED so we use IO43 */
-
-/* XTAL TUNE parameters */
-/* see http://devl.org/pipermail/mc1322x/2009-December/000162.html */
-/* for details about how to make this measurment */
-
-/* Econotag also needs an addtional 12pf on board */
-/* Coarse tune: add 4pf */
-#define CTUNE_4PF 1
-/* Coarse tune: add 0-15 pf (CTUNE is 4 bits) */
-#define CTUNE 11
-/* Fine tune: add FTUNE * 156fF (FTUNE is 5bits) */
-#define FTUNE 7
-
-#include <std_conf.h>
-
+#ifndef QUEUEBUF_CONF_NUM
+#define QUEUEBUF_CONF_NUM          6
 #endif
+
+#ifndef UIP_CONF_BUFFER_SIZE
+#define UIP_CONF_BUFFER_SIZE    140
+#endif
+
+#ifndef UIP_CONF_RECEIVE_WINDOW
+#define UIP_CONF_RECEIVE_WINDOW  60
+#endif
+
+#ifndef WEBSERVER_CONF_CFS_CONNS
+#define WEBSERVER_CONF_CFS_CONNS 2
+#endif
+
+#endif /* __PROJECT_RPL_WEB_CONF_H__ */

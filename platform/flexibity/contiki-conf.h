@@ -61,7 +61,7 @@
 /* set to 1 to toggle the green led ever second */
 /* FIXME setting this will break the sensor button (and other gpio) */
 /* since leds_arch hits the entire gpio_data */
-#define BLINK_SECONDS 0
+#define BLINK_SECONDS 1
 
 #define CCIF
 #define CLIF
