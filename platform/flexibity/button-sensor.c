@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2012, Maxim Osipov <maxim.osipov@gmail.com>
  * Copyright (c) 2010, Mariano Alvira <mar@devl.org> and other contributors
  * to the MC1322x project (http://mc1322x.devl.org) and Contiki.
  *
