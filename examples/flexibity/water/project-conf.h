@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2012, Maxim Osipov <maxim.osipov@gmail.com>
  * Copyright (c) 2010, Swedish Institute of Computer Science.
  * All rights reserved.
  *
@@ -29,8 +30,8 @@
  *
  */
 
-#ifndef __PROJECT_RPL_WEB_CONF_H__
-#define __PROJECT_RPL_WEB_CONF_H__
+#ifndef __PROJECT_WATER_CONF_H__
+#define __PROJECT_WATER_CONF_H__
 
 #ifndef QUEUEBUF_CONF_NUM
 #define QUEUEBUF_CONF_NUM          6
@@ -48,4 +49,4 @@
 #define WEBSERVER_CONF_CFS_CONNS 2
 #endif
 
-#endif /* __PROJECT_RPL_WEB_CONF_H__ */
+#endif /* __PROJECT_WATER_CONF_H__ */
