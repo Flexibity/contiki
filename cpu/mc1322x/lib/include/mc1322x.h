@@ -38,6 +38,7 @@
 
 #include "isr.h"
 #include "gpio.h"
+/*#include "gpio-util.h"*/
 #include "crm.h"
 #include "nvm.h"
 #include "tmr.h"
@@ -50,5 +51,6 @@
 #include "i2c.h"
 #include "rtc.h"
 #include "adc.h"
+#include "pwm.h"
 
 #endif
