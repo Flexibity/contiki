@@ -48,7 +48,6 @@
 #endif
 
 char temp[100];
-int buzzer_state;
 
 RESOURCE(discover, METHOD_GET, ".well-known/core");
 void
@@ -59,6 +58,7 @@ discover_handler(REQUEST* request, RESPONSE* response)
   index += sprintf(temp + index, "%s,", "</led>;n=\"Led\"");
   index += sprintf(temp + index, "%s,", "</button>;n=\"Button\"");
   index += sprintf(temp + index, "%s,", "</buzzer>;n=\"Buzzer\"");
+  index += sprintf(temp + index, "%s,", "</memory>;n=\"Memory\"");
 
   rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
   rest_set_header_content_type(response, APPLICATION_LINK_FORMAT);
@@ -69,7 +69,7 @@ RESOURCE(id, METHOD_GET, "id");
 void
 id_handler(REQUEST* request, RESPONSE* response)
 {
-  sprintf(temp,"Flexibity Buzzer version 0.1");
+  sprintf(temp,"Flexibity Buzzer version 0.1\n");
 
   rest_set_header_content_type(response, TEXT_PLAIN);
   rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
@@ -82,9 +82,9 @@ button_handler(REQUEST* request, RESPONSE* response)
 {
   int val = button_sensor.value(0);
   if (val) {
-    sprintf(temp,"On");
+    sprintf(temp, "On\n");
   } else {
-    sprintf(temp,"Off");
+    sprintf(temp, "Off\n");
   }
 
   rest_set_header_content_type(response, TEXT_PLAIN);
@@ -138,16 +138,58 @@ led_handler(REQUEST* request, RESPONSE* response)
 }
 
 
-RESOURCE(buzzer, METHOD_GET | METHOD_PUT | METHOD_POST, "buzzer");
+RESOURCE(buzzer, METHOD_PUT | METHOD_POST, "buzzer");
 void
 buzzer_handler(REQUEST* request, RESPONSE* response)
 {
-  if (buzzer_state) {
-    pwm_duty(TMR3, 0);
-    buzzer_state = 0;
+  char mode[10];
+  int success = 1;
+  int ret;
+
+  ret = rest_get_post_variable(request, "mode", mode, 10);
+  if (ret) {
+    PRINTF("buzzer mode %s\n", mode);
+
+    if (!strcmp(mode, "on")) {
+      pwm_duty(TMR3, 10000);
+    } else if (!strcmp(mode, "off")) {
+      pwm_duty(TMR3, 0);
+    } else {
+      success = 0;
+    }
   } else {
-    pwm_duty(TMR3, 10000);
-    buzzer_state = 1;
+    success = 0;
+  }
+
+  if (!success) {
+    rest_set_response_status(response, BAD_REQUEST_400);
+  }
+}
+
+
+RESOURCE(memory, METHOD_GET, "memory");
+void
+memory_handler(REQUEST* request, RESPONSE* response)
+{
+  char addr[16];
+  int* ptr = 0;
+  int success = 1;
+  int ret;
+
+  ret = rest_get_query_variable(request, "addr", addr, 16);
+  if (ret) {
+/*    sscanf(addr, "%x", ptr);*/
+    sprintf(temp, "%x", *ptr);
+    PRINTF("memory addr %s = %s\n", addr, temp);
+  } else {
+    success = 0;
+  }
+
+  if (success) {
+    rest_set_header_content_type(response, TEXT_PLAIN);
+    rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
+  } else {
+    rest_set_response_status(response, BAD_REQUEST_400);
   }
 }
 
@@ -159,7 +201,6 @@ PROCESS_THREAD(flexibity_buzzer, ev, data)
   PROCESS_BEGIN();
   SENSORS_ACTIVATE(button_sensor);
   pwm_init_stopped(TMR3, 1500, 10000);
-  buzzer_state = 0;
 
 #ifdef WITH_COAP
   PRINTF("COAP Server\n");
