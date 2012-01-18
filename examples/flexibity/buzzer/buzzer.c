@@ -49,6 +49,29 @@
 
 char temp[100];
 
+/* sscanf is too big for us ;( */
+uint32_t readhex(char *str)
+{
+  uint32_t num = 0;
+  int i = 0;
+
+  if (strlen(str) != 10 || str[0] != '0' || str[1] != 'x') {
+    PRINTF("readhex error %s\n", str);
+    return 0;
+  }
+  for (i = 9; i>=2; i--) {
+    char c = str[i];
+    num = num<<4;
+    if (c >= '0' && c <= '9')
+      num = num & (c-'0');
+    else
+      num = num & (c-'a'+10);
+  }
+  PRINTF("readhex success 0x%x\n", num);
+  return num;
+}
+
+
 RESOURCE(discover, METHOD_GET, ".well-known/core");
 void
 discover_handler(REQUEST* request, RESPONSE* response)
@@ -178,9 +201,11 @@ memory_handler(REQUEST* request, RESPONSE* response)
 
   ret = rest_get_query_variable(request, "addr", addr, 16);
   if (ret) {
-/*    sscanf(addr, "%x", ptr);*/
-    sprintf(temp, "%x", *ptr);
-    PRINTF("memory addr %s = %s\n", addr, temp);
+    ptr = (int*)readhex(addr);
+    if (ptr != 0) {
+      sprintf(temp, "%x", *ptr);
+      PRINTF("memory addr %s = %s\n", addr, temp);
+    }
   } else {
     success = 0;
   }
