@@ -43,21 +43,12 @@
 
 const struct sensors_sensor button_sensor;
 
-static struct timer debouncetimer;
 static int status(int type);
-
-void kbi0_isr(void) {
-	if(timer_expired(&debouncetimer)) {
-		timer_set(&debouncetimer, CLOCK_SECOND / 4);
-		sensors_changed(&button_sensor);
-	}
-	clear_kbi_evnt(0);
-}
 
 static int
 value(int type)
 {
-	return GPIO->DATA.GPIO_22 || !timer_expired(&debouncetimer);
+	return GPIO->DATA.GPIO_22 ? 0 : 1;
 }
 
 static int
@@ -67,11 +58,12 @@ configure(int type, int c)
 	case SENSORS_ACTIVE:
 		if (c) {
 			if(!status(SENSORS_ACTIVE)) {
-				timer_set(&debouncetimer, 0);
-				enable_irq_kbi(0);
+				/* GPIO, Input, Pull-Up */
+				gpio_select_function(22, 0);
+				gpio_set_pad_dir(22, 0);
+				GPIO->PAD_PU_SEL.GPIO_22 = 1;
+				GPIO->PAD_PU_EN.GPIO_22 = 1;
 			}
-		} else {
-			disable_irq_kbi(0);
 		}
 		return 1;
 	}
