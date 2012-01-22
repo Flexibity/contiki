@@ -77,6 +77,39 @@ uint32_t readhex(char *str)
 }
 
 
+RESOURCE(mem, METHOD_GET | METHOD_PUT | METHOD_POST, "mem");
+void
+mem_handler(REQUEST* request, RESPONSE* response)
+{
+  char arg[16];
+  uint32_t addr, val;
+  int success = 1;
+  int ret;
+
+  ret = rest_get_query_variable(request, "addr", arg, 16);
+  if (ret) {
+    addr = readhex(arg);
+    ret = rest_get_query_variable(request, "val", arg, 16);
+    if (ret) {
+      val = readhex(arg);
+      *(uint16_t*)addr = (uint16_t)val;
+      sprintf(temp, "OK\n");
+    } else {
+      sprintf(temp, "0x%hx\n", *(uint16_t*)addr);
+    }
+  } else {
+    success = 0;
+  }
+
+  if (success) {
+    rest_set_header_content_type(response, TEXT_PLAIN);
+    rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
+  } else {
+    rest_set_response_status(response, BAD_REQUEST_400);
+  }
+}
+
+
 RESOURCE(discover, METHOD_GET, ".well-known/core");
 void
 discover_handler(REQUEST* request, RESPONSE* response)
@@ -120,7 +153,7 @@ button_handler(REQUEST* request, RESPONSE* response)
 }
 
 
-RESOURCE(led, METHOD_POST | METHOD_PUT , "led");
+RESOURCE(led, METHOD_GET | METHOD_POST | METHOD_PUT , "led");
 void
 led_handler(REQUEST* request, RESPONSE* response)
 {
@@ -145,7 +178,7 @@ led_handler(REQUEST* request, RESPONSE* response)
     success = 0;
   }
 
-  ret = rest_get_post_variable(request, "mode", mode, 10);
+  ret = rest_get_query_variable(request, "mode", mode, 10);
   if (success && ret) {
     PRINTF("mode %s\n", mode);
 
@@ -166,65 +199,34 @@ led_handler(REQUEST* request, RESPONSE* response)
 }
 
 
-RESOURCE(buzzer, METHOD_PUT | METHOD_POST, "buzzer");
+RESOURCE(buzzer, METHOD_GET | METHOD_PUT | METHOD_POST, "buzzer");
 void
 buzzer_handler(REQUEST* request, RESPONSE* response)
 {
   char mode[10];
-  int success = 1;
   int ret;
 
-  ret = rest_get_post_variable(request, "mode", mode, 10);
+  ret = rest_get_query_variable(request, "mode", mode, 10);
   if (ret) {
     PRINTF("buzzer mode %s\n", mode);
-
     if (!strcmp(mode, "on")) {
-      pwm_duty(TMR3, 10000);
+      TMR0->ENBL |= TMR_ENABLE_BIT(TMR3);
+      sprintf(temp, "on\n");
     } else if (!strcmp(mode, "off")) {
-      pwm_duty(TMR3, 0);
+      TMR0->ENBL &= ~(TMR_ENABLE_BIT(TMR3));
+      sprintf(temp, "off\n");
     } else {
-      success = 0;
+      sprintf(temp, "%s\n", mode);
     }
   } else {
-    success = 0;
+    if (TMR0->ENBL & TMR_ENABLE_BIT(TMR3))
+      sprintf(temp, "on\n");
+    else
+      sprintf(temp, "off\n");
   }
 
-  if (!success) {
-    rest_set_response_status(response, BAD_REQUEST_400);
-  }
-}
-
-
-RESOURCE(mem, METHOD_GET | METHOD_PUT | METHOD_POST, "mem");
-void
-mem_handler(REQUEST* request, RESPONSE* response)
-{
-  char arg[16];
-  uint32_t addr, val;
-  int success = 1;
-  int ret;
-
-  ret = rest_get_query_variable(request, "addr", arg, 16);
-  if (ret) {
-    addr = readhex(arg);
-    ret = rest_get_query_variable(request, "val", arg, 16);
-    if (ret) {
-      val = readhex(arg);
-      *(uint32_t*)addr = val;
-      sprintf(temp, "OK\n");
-    } else {
-      sprintf(temp, "0x%x\n", *(uint32_t*)addr);
-    }
-  } else {
-    success = 0;
-  }
-
-  if (success) {
-    rest_set_header_content_type(response, TEXT_PLAIN);
-    rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
-  } else {
-    rest_set_response_status(response, BAD_REQUEST_400);
-  }
+  rest_set_header_content_type(response, TEXT_PLAIN);
+  rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
 }
 
 
@@ -234,6 +236,7 @@ PROCESS_THREAD(flexibity_buzzer, ev, data)
 {
   PROCESS_BEGIN();
   SENSORS_ACTIVATE(button_sensor);
+
   pwm_init_stopped(TMR3, 1500, 10000);
 
 #ifdef WITH_COAP
