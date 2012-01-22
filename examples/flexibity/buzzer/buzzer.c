@@ -59,15 +59,20 @@ uint32_t readhex(char *str)
     PRINTF("readhex error %s\n", str);
     return 0;
   }
-  for (i = 9; i>=2; i--) {
+  for (i = 2; i<=9; i++) {
     char c = str[i];
     num = num<<4;
-    if (c >= '0' && c <= '9')
-      num = num & (c-'0');
-    else
-      num = num & (c-'a'+10);
+    if (c >= '0' && c <= '9') {
+      num = num | (c-'0');
+    } else if (c >= 'a' && c <= 'f') {
+      num = num | (c-'a'+10);
+    } else if (c >= 'A' && c <= 'F') {
+      num = num | (c-'A'+10);
+    } else {
+      PRINTF("readhex error %c\n", c);
+      return 0;
+    }
   }
-  PRINTF("readhex success 0x%x\n", num);
   return num;
 }
 
@@ -81,7 +86,7 @@ discover_handler(REQUEST* request, RESPONSE* response)
   index += sprintf(temp + index, "%s,", "</led>;n=\"Led\"");
   index += sprintf(temp + index, "%s,", "</button>;n=\"Button\"");
   index += sprintf(temp + index, "%s,", "</buzzer>;n=\"Buzzer\"");
-  index += sprintf(temp + index, "%s,", "</memory>;n=\"Memory\"");
+  index += sprintf(temp + index, "%s,", "</mem>;n=\"Memory\"");
 
   rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
   rest_set_header_content_type(response, APPLICATION_LINK_FORMAT);
@@ -190,21 +195,25 @@ buzzer_handler(REQUEST* request, RESPONSE* response)
 }
 
 
-RESOURCE(memory, METHOD_GET, "memory");
+RESOURCE(mem, METHOD_GET | METHOD_PUT | METHOD_POST, "mem");
 void
-memory_handler(REQUEST* request, RESPONSE* response)
+mem_handler(REQUEST* request, RESPONSE* response)
 {
-  char addr[16];
-  int* ptr = 0;
+  char arg[16];
+  uint32_t addr, val;
   int success = 1;
   int ret;
 
-  ret = rest_get_query_variable(request, "addr", addr, 16);
+  ret = rest_get_query_variable(request, "addr", arg, 16);
   if (ret) {
-    ptr = (int*)readhex(addr);
-    if (ptr != 0) {
-      sprintf(temp, "%x", *ptr);
-      PRINTF("memory addr %s = %s\n", addr, temp);
+    addr = readhex(arg);
+    ret = rest_get_query_variable(request, "val", arg, 16);
+    if (ret) {
+      val = readhex(arg);
+      *(uint32_t*)addr = val;
+      sprintf(temp, "OK\n");
+    } else {
+      sprintf(temp, "0x%x\n", *(uint32_t*)addr);
     }
   } else {
     success = 0;
@@ -235,6 +244,7 @@ PROCESS_THREAD(flexibity_buzzer, ev, data)
 
   rest_init();
 
+  rest_activate_resource(&resource_mem);
   rest_activate_resource(&resource_buzzer);
   rest_activate_resource(&resource_led);
   rest_activate_resource(&resource_button);
