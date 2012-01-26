@@ -188,6 +188,12 @@ init_lowlevel(void)
 {
 	/* button init */
 	/* set up kbi */
+	GPIO->PAD_PU_SEL.GPIO_22 = 1;
+	GPIO->PAD_PU_SEL.GPIO_26 = 1;
+	GPIO->PAD_PU_EN.GPIO_22 = 1;
+	GPIO->PAD_PU_EN.GPIO_26 = 1;
+	GPIO->PAD_DIR_RESET.GPIO_22 = 1;
+	GPIO->PAD_DIR_RESET.GPIO_26 = 1;
 	enable_irq_kbi(4);
 	kbi_edge(4);
 	enable_ext_wu(4);
