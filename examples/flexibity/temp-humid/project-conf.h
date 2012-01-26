@@ -1,7 +1,6 @@
 /*
- * Copyright (c) 2010, Mariano Alvira <mar@devl.org> and other contributors
- * to the MC1322x project (http://mc1322x.devl.org) and Contiki.
- *
+ * Copyright (c) 2012, Maxim Osipov <maxim.osipov@gmail.com>
+ * Copyright (c) 2010, Swedish Institute of Computer Science.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,44 +27,26 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * This file is part of the Contiki OS.
- *
  *
  */
 
-#include "contiki-conf.h"
-#include "dev/leds.h"
-#include "mc1322x.h"
-#include "board.h"
+#ifndef __PROJECT_BUZZER_CONF_H__
+#define __PROJECT_BUZZER_CONF_H__
 
-#define LED_ARCH_RED   GPIO_LED_RED
-#define LED_ARCH_GREEN GPIO_LED_GREEN
-#define LED_ARCH_BLUE  GPIO_LED_BLUE
+#ifndef QUEUEBUF_CONF_NUM
+#define QUEUEBUF_CONF_NUM          6
+#endif
 
-void leds_arch_init(void)
-{
-	/* set gpio func_sel to gpio (3) */
-	GPIO->FUNC_SEL.LED_ARCH_RED = 3;
-	GPIO->FUNC_SEL.LED_ARCH_GREEN = 3;
-	GPIO->FUNC_SEL.LED_ARCH_BLUE = 3;
+#ifndef UIP_CONF_BUFFER_SIZE
+#define UIP_CONF_BUFFER_SIZE    140
+#endif
 
-	/* set led gpios to output */
-	GPIO->PAD_DIR.LED_ARCH_RED = 1;
-	GPIO->PAD_DIR.LED_ARCH_GREEN = 1;
-	GPIO->PAD_DIR.LED_ARCH_BLUE = 1;
-}
+#ifndef UIP_CONF_RECEIVE_WINDOW
+#define UIP_CONF_RECEIVE_WINDOW  60
+#endif
 
-unsigned char leds_arch_get(void)
-{
+#ifndef WEBSERVER_CONF_CFS_CONNS
+#define WEBSERVER_CONF_CFS_CONNS 2
+#endif
 
-	return ((GPIO->DATA.LED_ARCH_RED) ? 1 : LEDS_RED)
-		| ((GPIO->DATA.LED_ARCH_GREEN) ? 1 : LEDS_GREEN);
-
-}
-
-void leds_arch_set(unsigned char leds)
-{
-	if(leds & LEDS_RED)   { gpio_reset(LED_ARCH_RED);   } else { gpio_set(LED_ARCH_RED);   } 
-	if(leds & LEDS_GREEN) { gpio_reset(LED_ARCH_GREEN); } else { gpio_set(LED_ARCH_GREEN); } 
-}
-
+#endif /* __PROJECT_BUZZER_CONF_H__ */

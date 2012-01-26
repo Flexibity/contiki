@@ -1,7 +1,6 @@
 /*
- * Copyright (c) 2010, Mariano Alvira <mar@devl.org> and other contributors
- * to the MC1322x project (http://mc1322x.devl.org) and Contiki.
- *
+ * Copyright (c) 2012, Maxim Osipov <maxim.osipov@gmail.com>
+ * Copyright (c) 2005, Swedish Institute of Computer Science
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,44 +27,79 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * This file is part of the Contiki OS.
- *
+ * This file is part of the Contiki operating system.
  *
  */
 
-#include "contiki-conf.h"
-#include "dev/leds.h"
+#include <stdlib.h>
+
+#include "contiki.h"
+#include "lib/sensors.h"
+#include "dev/sht21-sensor.h"
 #include "mc1322x.h"
-#include "board.h"
 
-#define LED_ARCH_RED   GPIO_LED_RED
-#define LED_ARCH_GREEN GPIO_LED_GREEN
-#define LED_ARCH_BLUE  GPIO_LED_BLUE
+const struct sensors_sensor sht21_sensor;
 
-void leds_arch_init(void)
+enum {
+  ON, OFF
+};
+static uint8_t state = OFF;
+
+
+static int
+value(int type)
 {
-	/* set gpio func_sel to gpio (3) */
-	GPIO->FUNC_SEL.LED_ARCH_RED = 3;
-	GPIO->FUNC_SEL.LED_ARCH_GREEN = 3;
-	GPIO->FUNC_SEL.LED_ARCH_BLUE = 3;
+  switch (type) {
+    case SHT21_SENSOR_TEMP:
+      return i2c_temp();
+      break;
+    case SHT21_SENSOR_HUMIDITY:
+      return i2c_humidity();
+      break;
+  }
 
-	/* set led gpios to output */
-	GPIO->PAD_DIR.LED_ARCH_RED = 1;
-	GPIO->PAD_DIR.LED_ARCH_GREEN = 1;
-	GPIO->PAD_DIR.LED_ARCH_BLUE = 1;
+  return 0;
 }
 
-unsigned char leds_arch_get(void)
+
+static int
+status(int type)
 {
+  switch (type) {
+    case SENSORS_ACTIVE:
+    case SENSORS_READY:
+      return (state == ON);
+  }
 
-	return ((GPIO->DATA.LED_ARCH_RED) ? 1 : LEDS_RED)
-		| ((GPIO->DATA.LED_ARCH_GREEN) ? 1 : LEDS_GREEN);
-
+  return 0;
 }
 
-void leds_arch_set(unsigned char leds)
+
+static int
+configure(int type, int c)
 {
-	if(leds & LEDS_RED)   { gpio_reset(LED_ARCH_RED);   } else { gpio_set(LED_ARCH_RED);   } 
-	if(leds & LEDS_GREEN) { gpio_reset(LED_ARCH_GREEN); } else { gpio_set(LED_ARCH_GREEN); } 
+  switch (type) {
+    case SENSORS_ACTIVE:
+      if (c) {
+        if (!status(SENSORS_ACTIVE)) {
+          rtimer_clock_t t0;
+          i2c_enable();
+          state = ON;
+
+          /* For for about 11 ms before the SHT11 can be used. */
+          t0 = RTIMER_NOW();
+          while(RTIMER_CLOCK_LT(RTIMER_NOW(), t0 + RTIMER_SECOND / 100));
+        }
+      } else {
+        i2c_disable();
+        state = OFF;
+      }
+  }
+
+  return 0;
 }
+
+
+SENSORS_SENSOR(sht21_sensor, "sht21",
+	       value, configure, status);
 
