@@ -49,17 +49,18 @@
 
 char temp[100];
 
+#if DEBUG
 /* sscanf is too big for us ;( */
 uint32_t readhex(char *str)
 {
   uint32_t num = 0;
   int i = 0;
 
-  if (strlen(str) != 10 || str[0] != '0' || str[1] != 'x') {
-    PRINTF("readhex error %s\n", str);
+  if (strlen(str) > 10 || str[0] != '0' || str[1] != 'x') {
+    PRINTF("readhex string error %s\n", str);
     return 0;
   }
-  for (i = 2; i<=9; i++) {
+  for (i = 2; i<=strlen(str)-1; i++) {
     char c = str[i];
     num = num<<4;
     if (c >= '0' && c <= '9') {
@@ -69,7 +70,7 @@ uint32_t readhex(char *str)
     } else if (c >= 'A' && c <= 'F') {
       num = num | (c-'A'+10);
     } else {
-      PRINTF("readhex error %c\n", c);
+      PRINTF("readhex digit error %c\n", c);
       return 0;
     }
   }
@@ -89,13 +90,45 @@ mem_handler(REQUEST* request, RESPONSE* response)
   ret = rest_get_query_variable(request, "addr", arg, 16);
   if (ret) {
     addr = readhex(arg);
-    ret = rest_get_query_variable(request, "val", arg, 16);
+    ret = rest_get_query_variable(request, "sz", arg, 16);
     if (ret) {
-      val = readhex(arg);
-      *(uint16_t*)addr = (uint16_t)val;
-      sprintf(temp, "OK\n");
+      if (arg[0] == '1') {
+        ret = rest_get_query_variable(request, "val", arg, 16);
+        if (ret) {
+          val = readhex(arg);
+          *(uint8_t*)addr = (uint8_t)val;
+          sprintf(temp, "OK\n");
+        } else {
+          sprintf(temp, "0x%02x\n", *(uint8_t*)addr);
+        }
+      } else if (arg[0] == '2') {
+        ret = rest_get_query_variable(request, "val", arg, 16);
+        if (ret) {
+          val = readhex(arg);
+          *(uint16_t*)addr = (uint16_t)val;
+          sprintf(temp, "OK\n");
+        } else {
+          sprintf(temp, "0x%0hx\n", *(uint16_t*)addr);
+        }
+      } else {
+        ret = rest_get_query_variable(request, "val", arg, 16);
+        if (ret) {
+          val = readhex(arg);
+          *(uint32_t*)addr = (uint32_t)val;
+          sprintf(temp, "OK\n");
+        } else {
+          sprintf(temp, "0x%0x\n", *(uint32_t*)addr);
+        }
+      }
     } else {
-      sprintf(temp, "0x%hx\n", *(uint16_t*)addr);
+      ret = rest_get_query_variable(request, "val", arg, 16);
+      if (ret) {
+        val = readhex(arg);
+        *(uint32_t*)addr = (uint32_t)val;
+        sprintf(temp, "OK\n");
+      } else {
+        sprintf(temp, "0x%0x\n", *(uint32_t*)addr);
+      }
     }
   } else {
     success = 0;
@@ -108,7 +141,7 @@ mem_handler(REQUEST* request, RESPONSE* response)
     rest_set_response_status(response, BAD_REQUEST_400);
   }
 }
-
+#endif
 
 RESOURCE(discover, METHOD_GET, ".well-known/core");
 void
@@ -118,9 +151,11 @@ discover_handler(REQUEST* request, RESPONSE* response)
   index += sprintf(temp + index, "%s,", "</id>;n=\"ID\"");
   index += sprintf(temp + index, "%s,", "</led>;n=\"Led\"");
   index += sprintf(temp + index, "%s,", "</button>;n=\"Button\"");
+  index += sprintf(temp + index, "%s,", "</pwr>;n=\"Power\"");
   index += sprintf(temp + index, "%s,", "</buzzer>;n=\"Buzzer\"");
+#if DEBUG
   index += sprintf(temp + index, "%s,", "</mem>;n=\"Memory\"");
-
+#endif
   rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
   rest_set_header_content_type(response, APPLICATION_LINK_FORMAT);
 }
@@ -199,6 +234,17 @@ led_handler(REQUEST* request, RESPONSE* response)
 }
 
 
+RESOURCE(pwr, METHOD_GET, "pwr");
+void
+pwr_handler(REQUEST* request, RESPONSE* response)
+{
+  int val = 0;
+  sprintf(temp, "%i\n", val);
+  rest_set_header_content_type(response, TEXT_PLAIN);
+  rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
+}
+
+
 RESOURCE(buzzer, METHOD_GET | METHOD_PUT | METHOD_POST, "buzzer");
 void
 buzzer_handler(REQUEST* request, RESPONSE* response)
@@ -247,8 +293,11 @@ PROCESS_THREAD(flexibity_buzzer, ev, data)
 
   rest_init();
 
+#if DEBUG
   rest_activate_resource(&resource_mem);
+#endif
   rest_activate_resource(&resource_buzzer);
+  rest_activate_resource(&resource_pwr);
   rest_activate_resource(&resource_led);
   rest_activate_resource(&resource_button);
   rest_activate_resource(&resource_id);
