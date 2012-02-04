@@ -39,7 +39,7 @@
 #include "mc1322x.h"
 #include "i2c.h"
 
-#undef DEBUG
+#define DEBUG
 
 enum {
   ON, OFF
@@ -65,14 +65,14 @@ value(int type)
       printf("sht21_temp: 0x%x\n", val);
 #endif
       /* return temp * 100 (0.01 deg accuracy) */
-      return (-46.85 + 175.72*((val>>16)&0xfffffffc)/0x10000)*100;
+      return (-46.85 + (175.72*((val>>16)&0x0000fffc))/0x10000)*100;
     case SHT21_SENSOR_HUMIDITY:
       val = sht21_humidity();
 #ifdef DEBUG
       printf("sht21_humidity: 0x%x\n", val);
 #endif
       /* return relative humidity * 100 (0.04 % accuracy) */
-      return (-6 + 125*((val>>16)&0xfffffffc)/0x10000)*100;
+      return (-6.0 + (125.0*((val>>16)&0x0000fffc))/0x10000)*100;
   }
 
   return 0;
