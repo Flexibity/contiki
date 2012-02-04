@@ -37,6 +37,7 @@
 #include "rest.h"
 #include "dev/leds.h"
 #include "dev/button-sensor.h"
+#include "dev/battery-sensor.h"
 #include "mc1322x.h"
 
 #define DEBUG 1
@@ -47,7 +48,9 @@
 #define PRINTF(...)
 #endif
 
+
 char temp[100];
+
 
 #if DEBUG
 /* sscanf is too big for us ;( */
@@ -142,6 +145,7 @@ mem_handler(REQUEST* request, RESPONSE* response)
   }
 }
 #endif
+
 
 RESOURCE(discover, METHOD_GET, ".well-known/core");
 void
@@ -238,8 +242,10 @@ RESOURCE(pwr, METHOD_GET, "pwr");
 void
 pwr_handler(REQUEST* request, RESPONSE* response)
 {
-  int val = 0;
+  int val = battery_sensor.value(0);
+
   sprintf(temp, "%i\n", val);
+
   rest_set_header_content_type(response, TEXT_PLAIN);
   rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
 }
@@ -282,7 +288,9 @@ PROCESS_THREAD(flexibity_buzzer, ev, data)
 {
   PROCESS_BEGIN();
   SENSORS_ACTIVATE(button_sensor);
+  SENSORS_ACTIVATE(battery_sensor);
 
+  /* PWM for buzzer */
   pwm_init_stopped(TMR3, 1500, 10000);
 
 #ifdef WITH_COAP
