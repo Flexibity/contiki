@@ -37,6 +37,7 @@
 #include "rest.h"
 #include "dev/leds.h"
 #include "dev/button-sensor.h"
+#include "dev/sht21-sensor.h"
 #include "mc1322x.h"
 
 #define DEBUG 1
@@ -47,7 +48,7 @@
 #define PRINTF(...)
 #endif
 
-char temp[100];
+char temp[200];
 
 /* sscanf is too big for us ;( */
 uint32_t readhex(char *str)
@@ -118,7 +119,8 @@ discover_handler(REQUEST* request, RESPONSE* response)
   index += sprintf(temp + index, "%s,", "</id>;n=\"ID\"");
   index += sprintf(temp + index, "%s,", "</led>;n=\"Led\"");
   index += sprintf(temp + index, "%s,", "</button>;n=\"Button\"");
-  index += sprintf(temp + index, "%s,", "</buzzer>;n=\"Buzzer\"");
+  index += sprintf(temp + index, "%s,", "</temp>;n=\"Temperature\"");
+  index += sprintf(temp + index, "%s,", "</humidity>;n=\"Humidity\"");
   index += sprintf(temp + index, "%s,", "</mem>;n=\"Memory\"");
 
   rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
@@ -130,7 +132,7 @@ RESOURCE(id, METHOD_GET, "id");
 void
 id_handler(REQUEST* request, RESPONSE* response)
 {
-  sprintf(temp,"Flexibity Buzzer version 0.1\n");
+  sprintf(temp,"Flexibity THAP version 0.1\n");
 
   rest_set_header_content_type(response, TEXT_PLAIN);
   rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
@@ -199,45 +201,39 @@ led_handler(REQUEST* request, RESPONSE* response)
 }
 
 
-RESOURCE(buzzer, METHOD_GET | METHOD_PUT | METHOD_POST, "buzzer");
+RESOURCE(temp, METHOD_GET, "temp");
 void
-buzzer_handler(REQUEST* request, RESPONSE* response)
+temp_handler(REQUEST* request, RESPONSE* response)
 {
-  char mode[10];
-  int ret;
+  int val = sht21_sensor.value(SHT21_SENSOR_TEMP);
 
-  ret = rest_get_query_variable(request, "mode", mode, 10);
-  if (ret) {
-    PRINTF("buzzer mode %s\n", mode);
-    if (!strcmp(mode, "on")) {
-      TMR0->ENBL |= TMR_ENABLE_BIT(TMR3);
-      sprintf(temp, "on\n");
-    } else if (!strcmp(mode, "off")) {
-      TMR0->ENBL &= ~(TMR_ENABLE_BIT(TMR3));
-      sprintf(temp, "off\n");
-    } else {
-      sprintf(temp, "%s\n", mode);
-    }
-  } else {
-    if (TMR0->ENBL & TMR_ENABLE_BIT(TMR3))
-      sprintf(temp, "on\n");
-    else
-      sprintf(temp, "off\n");
-  }
+  sprintf(temp, "%i.%i\n", val/100, val%100);
 
   rest_set_header_content_type(response, TEXT_PLAIN);
   rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
 }
 
 
-PROCESS(flexibity_buzzer, "Buzzer Server");
-AUTOSTART_PROCESSES(&flexibity_buzzer);
-PROCESS_THREAD(flexibity_buzzer, ev, data)
+RESOURCE(humidity, METHOD_GET, "humidity");
+void
+humidity_handler(REQUEST* request, RESPONSE* response)
+{
+  int val = sht21_sensor.value(SHT21_SENSOR_HUMIDITY);
+
+  sprintf(temp, "%i.%i\n", val/100, val%100);
+
+  rest_set_header_content_type(response, TEXT_PLAIN);
+  rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
+}
+
+
+PROCESS(flexibity_thap, "THAP Server");
+AUTOSTART_PROCESSES(&flexibity_thap);
+PROCESS_THREAD(flexibity_thap, ev, data)
 {
   PROCESS_BEGIN();
   SENSORS_ACTIVATE(button_sensor);
-
-  pwm_init_stopped(TMR3, 1500, 10000);
+  SENSORS_ACTIVATE(sht21_sensor);
 
 #ifdef WITH_COAP
   PRINTF("COAP Server\n");
@@ -248,7 +244,8 @@ PROCESS_THREAD(flexibity_buzzer, ev, data)
   rest_init();
 
   rest_activate_resource(&resource_mem);
-  rest_activate_resource(&resource_buzzer);
+  rest_activate_resource(&resource_humidity);
+  rest_activate_resource(&resource_temp);
   rest_activate_resource(&resource_led);
   rest_activate_resource(&resource_button);
   rest_activate_resource(&resource_id);

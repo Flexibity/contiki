@@ -1,4 +1,4 @@
-all: temp-humid
+all: thap
 
 ifndef TARGET
 TARGET=flexibity
