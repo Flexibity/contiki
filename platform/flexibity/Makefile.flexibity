@@ -5,7 +5,7 @@ CONTIKI_CORE=contiki-mc1322x-main
 CONTIKI_TARGET_MAIN = ${CONTIKI_CORE}.o
 
 CONTIKI_TARGET_SOURCEFILES += contiki-mc1322x-main.c clock.c slip.c \
-	button-sensor.c battery-sensor.c sht21-sensor.c sensors.c
+	button-sensor.c battery-sensor.c sht21-sensor.c mpl115a2-sensor.c sensors.c
 
 CONTIKIMC1322X=$(CONTIKI)/cpu/mc1322x
 CONTIKIBOARD=.

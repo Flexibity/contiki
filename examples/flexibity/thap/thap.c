@@ -36,8 +36,10 @@
 #include "contiki-net.h"
 #include "rest.h"
 #include "dev/leds.h"
+#include "dev/battery-sensor.h"
 #include "dev/button-sensor.h"
 #include "dev/sht21-sensor.h"
+#include "dev/mpl115a2-sensor.h"
 #include "mc1322x.h"
 
 #define DEBUG 1
@@ -48,7 +50,7 @@
 #define PRINTF(...)
 #endif
 
-char temp[200];
+char temp[180];
 
 /* sscanf is too big for us ;( */
 uint32_t readhex(char *str)
@@ -121,6 +123,7 @@ discover_handler(REQUEST* request, RESPONSE* response)
   index += sprintf(temp + index, "%s,", "</button>;n=\"Button\"");
   index += sprintf(temp + index, "%s,", "</temp>;n=\"Temperature\"");
   index += sprintf(temp + index, "%s,", "</humidity>;n=\"Humidity\"");
+  index += sprintf(temp + index, "%s,", "</pressure>;n=\"Pressure\"");
   index += sprintf(temp + index, "%s,", "</mem>;n=\"Memory\"");
 
   rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
@@ -227,13 +230,28 @@ humidity_handler(REQUEST* request, RESPONSE* response)
 }
 
 
+RESOURCE(pressure, METHOD_GET, "pressure");
+void
+pressure_handler(REQUEST* request, RESPONSE* response)
+{
+  int val = mpl115a2_sensor.value(MPL115A2_SENSOR_PRESSURE);
+
+  sprintf(temp, "%i\n", val);
+
+  rest_set_header_content_type(response, TEXT_PLAIN);
+  rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
+}
+
+
 PROCESS(flexibity_thap, "THAP Server");
 AUTOSTART_PROCESSES(&flexibity_thap);
 PROCESS_THREAD(flexibity_thap, ev, data)
 {
   PROCESS_BEGIN();
+  SENSORS_ACTIVATE(battery_sensor);
   SENSORS_ACTIVATE(button_sensor);
   SENSORS_ACTIVATE(sht21_sensor);
+  SENSORS_ACTIVATE(mpl115a2_sensor);
 
 #ifdef WITH_COAP
   PRINTF("COAP Server\n");
@@ -244,6 +262,7 @@ PROCESS_THREAD(flexibity_thap, ev, data)
   rest_init();
 
   rest_activate_resource(&resource_mem);
+  rest_activate_resource(&resource_pressure);
   rest_activate_resource(&resource_humidity);
   rest_activate_resource(&resource_temp);
   rest_activate_resource(&resource_led);

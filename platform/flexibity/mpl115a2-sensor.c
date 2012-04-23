@@ -35,23 +35,44 @@
 
 #include "contiki.h"
 #include "lib/sensors.h"
-#include "dev/sht21-sensor.h"
+#include "dev/mpl115a2-sensor.h"
 #include "mc1322x.h"
 #include "i2c.h"
 
 #define DEBUG
 
+#define POUTH			0x00
+#define POUTL			0x01
+#define TOUTH			0x02
+#define TOUTL			0x03
+#define COEF1			0x04
+#define COEF2			0x05
+#define COEF3			0x06
+#define COEF4			0x07
+#define COEF5			0x08
+#define COEF6			0x09
+#define COEF7			0x0a
+#define COEF8			0x0b
+#define COEF9			0x0c
+#define COEF10			0x0d
+#define COEF11			0x0e
+#define COEF12			0x0f
+#define START_TEMP_CONV		0x10
+#define START_PRESS_CONV	0x11
+#define START_BOTH_CONV		0x12
+
+
 enum {
   ON, OFF
 };
 
-const struct sensors_sensor sht21_sensor;
-static rtimer_clock_t sht21_timer;
+const struct sensors_sensor mpl115a2_sensor;
+static rtimer_clock_t mpl115a2_timer;
 static uint8_t state = OFF;
 static uint8_t buf[16];
 
-static int sht21_temp();
-static int sht21_humidity();
+static int mpl115a2_temp();
+static int mpl115a2_pressure();
 
 static int
 value(int type)
@@ -59,20 +80,20 @@ value(int type)
   int val = 0;
 
   switch (type) {
-    case SHT21_SENSOR_TEMP:
-      val = sht21_temp();
+    case MPL115A2_SENSOR_TEMP:
+      val = mpl115a2_temp();
 #ifdef DEBUG
-      printf("sht21_temp: 0x%x\n", val);
+      printf("mpl115a2_temp: 0x%x\n", val);
 #endif
-      /* return temp * 100 (0.01 deg accuracy) */
-      return (-46.85 + (175.72*((val>>16)&0x0000fffc))/0x10000)*100;
-    case SHT21_SENSOR_HUMIDITY:
-      val = sht21_humidity();
+      /* return temperature */
+      return val;
+    case MPL115A2_SENSOR_PRESSURE:
+      val = mpl115a2_pressure();
 #ifdef DEBUG
-      printf("sht21_humidity: 0x%x\n", val);
+      printf("mpl115a2_pressure: 0x%x\n", val);
 #endif
-      /* return relative humidity * 100 (0.04 % accuracy) */
-      return (-6.0 + (125.0*((val>>16)&0x0000fffc))/0x10000)*100;
+      /* return barometric pressure */
+      return val;
   }
 
   return 0;
@@ -101,9 +122,9 @@ configure(int type, int c)
         if (!status(SENSORS_ACTIVE)) {
           i2c_enable();
           state = ON;
-          /* For for about 15ms before the SHT11 can be used */
-          sht21_timer = RTIMER_NOW();
-          while(RTIMER_CLOCK_LT(RTIMER_NOW(), sht21_timer + (RTIMER_SECOND/1000)*15));
+          /* For for about 15ms before the MPL115A2 can be used */
+          mpl115a2_timer = RTIMER_NOW();
+          while(RTIMER_CLOCK_LT(RTIMER_NOW(), mpl115a2_timer + (RTIMER_SECOND/1000)*15));
         }
       } else {
         i2c_disable();
@@ -116,41 +137,45 @@ configure(int type, int c)
 
 
 static int
-sht21_temp()
+mpl115a2_temp()
 {
-  buf[0] = 0xe3;
-  i2c_transmitinit(0x40, 1, buf);
+  buf[0] = START_TEMP_CONV;
+  i2c_transmitinit(0x60, 1, buf);
   while(!i2c_transferred()) ;
 
-  /* Wait for measurement about 85ms */
-  sht21_timer = RTIMER_NOW();
-  while(RTIMER_CLOCK_LT(RTIMER_NOW(), sht21_timer + (RTIMER_SECOND/1000)*85));
+  /* Wait for measurement about 1ms */
+  mpl115a2_timer = RTIMER_NOW();
+  while(RTIMER_CLOCK_LT(RTIMER_NOW(), mpl115a2_timer + (RTIMER_SECOND/1000)));
 
-  i2c_receiveinit(0x40, 3, buf);
+  buf[0] = POUTH;
+  i2c_receiveinit(0x60, 1, buf);
+  i2c_transmitinit(0x60, 2, buf);
   while(!i2c_transferred()) ;
 
-  return (int)(buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3]);
+  return (int)(buf[0]<<8 | buf[1]);
 }
 
 
 static int
-sht21_humidity()
+mpl115a2_pressure()
 {
-  buf[0] = 0xe5;
-  i2c_transmitinit(0x40, 1, buf);
+  buf[0] = START_PRESS_CONV;
+  i2c_transmitinit(0x60, 1, buf);
   while(!i2c_transferred()) ;
 
-  /* Wait for measurement about 85ms */
-  sht21_timer = RTIMER_NOW();
-  while(RTIMER_CLOCK_LT(RTIMER_NOW(), sht21_timer + (RTIMER_SECOND/1000)*85));
+  /* Wait for measurement about 1ms */
+  mpl115a2_timer = RTIMER_NOW();
+  while(RTIMER_CLOCK_LT(RTIMER_NOW(), mpl115a2_timer + (RTIMER_SECOND/1000)));
 
-  i2c_receiveinit(0x40, 3, buf);
+  buf[0] = TOUTH;
+  i2c_transmitinit(0x60, 1, buf);
+  i2c_receiveinit(0x60, 2, buf);
   while(!i2c_transferred()) ;
 
-  return (int)(buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3]);
+  return (int)(buf[0]<<8 | buf[1]);
 }
 
 
-SENSORS_SENSOR(sht21_sensor, "sht21",
+SENSORS_SENSOR(mpl115a2_sensor, "mpl115a2",
 	       value, configure, status);
 
