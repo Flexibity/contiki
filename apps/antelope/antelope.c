@@ -29,7 +29,11 @@
 
 /**
  * \file
- *	Main functions for Antelope.
+ *	Main functions for Antelope, a DBMS for sensor devices.
+ *
+ *      Antelope is described and evaluated in the paper A Database in
+ *      Every Sensor, N. Tsiftes and A. Dunkels, in Proceedings of
+ *      ACM SenSys 2011.
  * \author
  * 	Nicolas Tsiftes <nvt@sics.se>
  */
@@ -72,7 +76,7 @@ db_get_result_message(db_result_t code)
   case DB_NAME_ERROR:
     return "Invalid name";
   case DB_RELATIONAL_ERROR:
-    return "Relational algebra error";
+    return "Semantic error";
   case DB_TYPE_ERROR:
     return "Type error";
   case DB_IMPLEMENTATION_ERROR:

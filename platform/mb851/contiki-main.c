@@ -37,6 +37,7 @@
 *			Contiki main file.
 * \author
 *			Salvatore Pitrulli <salvopitru@users.sourceforge.net>
+*			Chi-Anh La <la@imag.fr>
 */
 /*---------------------------------------------------------------------------*/
 
@@ -67,12 +68,15 @@
 #include "net/rime/rime-udp.h"
 #include "net/uip.h"
 
+#if WITH_UIP6
+#include "net/uip-ds6.h"
+#endif /* WITH_UIP6 */
 
 #define DEBUG 1
 #if DEBUG
 #include <stdio.h>
 #define PRINTF(...) printf(__VA_ARGS__)
-#define PRINT6ADDR(addr) PRINTF(" %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ", ((u8_t *)addr)[0], ((u8_t *)addr)[1], ((u8_t *)addr)[2], ((u8_t *)addr)[3], ((u8_t *)addr)[4], ((u8_t *)addr)[5], ((u8_t *)addr)[6], ((u8_t *)addr)[7], ((u8_t *)addr)[8], ((u8_t *)addr)[9], ((u8_t *)addr)[10], ((u8_t *)addr)[11], ((u8_t *)addr)[12], ((u8_t *)addr)[13], ((u8_t *)addr)[14], ((u8_t *)addr)[15])
+#define PRINT6ADDR(addr) PRINTF(" %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ", ((uint8_t *)addr)[0], ((uint8_t *)addr)[1], ((uint8_t *)addr)[2], ((uint8_t *)addr)[3], ((uint8_t *)addr)[4], ((uint8_t *)addr)[5], ((uint8_t *)addr)[6], ((uint8_t *)addr)[7], ((uint8_t *)addr)[8], ((uint8_t *)addr)[9], ((uint8_t *)addr)[10], ((uint8_t *)addr)[11], ((uint8_t *)addr)[12], ((uint8_t *)addr)[13], ((uint8_t *)addr)[14], ((uint8_t *)addr)[15])
 #define PRINTLLADDR(lladdr) PRINTF(" %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x ",lladdr.u8[0], lladdr.u8[1], lladdr.u8[2], lladdr.u8[3],lladdr.u8[4], lladdr.u8[5], lladdr.u8[6], lladdr.u8[7])
 #else
 #define PRINTF(...)
@@ -82,9 +86,9 @@
 
 
 #if UIP_CONF_IPV6
-PROCINIT(&etimer_process, &tcpip_process, &sensors_process);
+PROCINIT(&tcpip_process, &sensors_process);
 #else
-PROCINIT(&etimer_process, &sensors_process);
+PROCINIT(&sensors_process);
 #warning "No TCP/IP process!"
 #endif
 
@@ -96,10 +100,8 @@ set_rime_addr(void)
 {
   int i;
   union {
-    u8_t u8[8];
+    uint8_t u8[8];
   }eui64;
-  
-  //rimeaddr_t lladdr;
   
   int8u *stm32w_eui64 = ST_RadioGetEui64();
   {
@@ -108,9 +110,6 @@ set_rime_addr(void)
                   eui64.u8[c] = stm32w_eui64[7 - c];
           }
   }
-  PRINTF("\n\rRadio EUI-64:");
-  PRINTLLADDR(eui64);
-  PRINTF("\n\r");
   
 #if UIP_CONF_IPV6
   memcpy(&uip_lladdr.addr, &eui64, sizeof(uip_lladdr.addr));
@@ -161,17 +160,25 @@ main(void)
   uart1_set_input(serial_line_input_byte);
   serial_line_init();
 #endif
+  /* rtimer and ctimer should be initialized before radio duty cycling layers*/
+  rtimer_init();
+  /* etimer_process should be initialized before ctimer */
+  process_start(&etimer_process, NULL);   
+  ctimer_init();
   
+    
   netstack_init();
-#if !UIP_CONF_IPV6
-  ST_RadioEnableAutoAck(FALSE); // Because frames are not 802.15.4 compatible. 
-  ST_RadioEnableAddressFiltering(FALSE);
-#endif
 
   set_rime_addr();
-  
-  ctimer_init();
-  rtimer_init();
+
+  printf("%s %s, channel check rate %lu Hz\n",
+         NETSTACK_MAC.name, NETSTACK_RDC.name,
+         CLOCK_SECOND / (NETSTACK_RDC.channel_check_interval() == 0 ? 1:
+                                  NETSTACK_RDC.channel_check_interval()));
+  printf("802.15.4 PAN ID 0x%x, EUI-%d:",
+      IEEE802154_CONF_PANID, UIP_CONF_LL_802154?64:16);
+  uip_debug_lladdr_print(&rimeaddr_node_addr);
+  printf(", radio channel %u\n", RF_CHANNEL);
   
   procinit_init();    
 
@@ -180,6 +187,32 @@ main(void)
   
   autostart_start(autostart_processes);
   
+  printf("Tentative link-local IPv6 address ");
+  {
+    uip_ds6_addr_t *lladdr;
+    int i;
+    lladdr = uip_ds6_get_link_local(-1);
+    for(i = 0; i < 7; ++i) {
+      printf("%02x%02x:", lladdr->ipaddr.u8[i * 2],
+             lladdr->ipaddr.u8[i * 2 + 1]);
+    }
+    printf("%02x%02x\n", lladdr->ipaddr.u8[14], lladdr->ipaddr.u8[15]);
+  }
+
+  if(!UIP_CONF_IPV6_RPL) {
+    uip_ipaddr_t ipaddr;
+    int i;
+    uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0, 0, 0);
+    uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
+    uip_ds6_addr_add(&ipaddr, 0, ADDR_TENTATIVE);
+    printf("Tentative global IPv6 address ");
+    for(i = 0; i < 7; ++i) {
+      printf("%02x%02x:",
+             ipaddr.u8[i * 2], ipaddr.u8[i * 2 + 1]);
+    }
+    printf("%02x%02x\n",
+           ipaddr.u8[7 * 2], ipaddr.u8[7 * 2 + 1]);
+  }
   
   watchdog_start();
   
@@ -256,11 +289,11 @@ void UsageFault_Handler(){
   errcode = 7; 
   //leds_on(LEDS_RED);
   //halReboot();
-}*/
+}
 
 void Default_Handler() 
 { 
   //errcode = 8; 
   leds_on(LEDS_RED);
   halReboot();
-}
+}*/
