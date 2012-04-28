@@ -56,7 +56,7 @@
 /* mc1322x files */
 #include "contiki-mc1322x-conf.h"
 /* this is from cpu/mc1322x/board */
-#include "redbee-econotag.h"
+#include "board.h"
 
 /* Clock ticks per second */
 #define CLOCK_CONF_SECOND 100

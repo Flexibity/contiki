@@ -33,6 +33,8 @@
 #ifndef __PROJECT_BUZZER_CONF_H__
 #define __PROJECT_BUZZER_CONF_H__
 
+#define PROCESS_CONF_NO_PROCESS_NAMES 1
+
 #ifndef QUEUEBUF_CONF_NUM
 #define QUEUEBUF_CONF_NUM          6
 #endif

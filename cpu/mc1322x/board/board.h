@@ -1,8 +1,8 @@
-#ifndef BOARD
-BOARD = redbee-econotag
+#if CONTIKI_TARGET_REDBEE_ECONOTAG == 1
+#include "redbee-econotag.h"
 #endif
 
-#if BOARD == redbee-econotag
-#include "redbee-econotag.h"
+#if CONTIKI_TARGET_FLEXIBITY == 1
+#include "flexibity.h"
 #endif
 

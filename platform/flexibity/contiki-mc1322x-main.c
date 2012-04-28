@@ -171,6 +171,7 @@ set_gateway(void)
 static void
 print_processes(struct process * const processes[])
 {
+#ifndef PROCESS_CONF_NO_PROCESS_NAMES
   /*  const struct process * const * p = processes;*/
   printf("Starting");
   while(*processes != NULL) {
@@ -178,6 +179,7 @@ print_processes(struct process * const processes[])
     processes++;
   }
   printf("\n");
+#endif
 }
 /*--------------------------------------------------------------------------*/
 
