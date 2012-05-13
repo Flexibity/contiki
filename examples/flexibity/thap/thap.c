@@ -26,7 +26,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
  */
 
 #include <stdio.h>
@@ -36,11 +35,14 @@
 #include "contiki-net.h"
 #include "rest.h"
 #include "dev/leds.h"
-#include "dev/battery-sensor.h"
-#include "dev/button-sensor.h"
-#include "dev/sht21-sensor.h"
-#include "dev/mpl115a2-sensor.h"
 #include "mc1322x.h"
+
+#include "battery.h"
+#include "button.h"
+#include "sht21.h"
+#include "mpl115a2.h"
+#include "readhex.h"
+
 
 #define DEBUG 1
 #if DEBUG
@@ -51,34 +53,6 @@
 #endif
 
 char temp[180];
-
-/* sscanf is too big for us ;( */
-uint32_t readhex(char *str)
-{
-  uint32_t num = 0;
-  int i = 0;
-
-  if (strlen(str) != 10 || str[0] != '0' || str[1] != 'x') {
-    PRINTF("readhex error %s\n", str);
-    return 0;
-  }
-  for (i = 2; i<=9; i++) {
-    char c = str[i];
-    num = num<<4;
-    if (c >= '0' && c <= '9') {
-      num = num | (c-'0');
-    } else if (c >= 'a' && c <= 'f') {
-      num = num | (c-'a'+10);
-    } else if (c >= 'A' && c <= 'F') {
-      num = num | (c-'A'+10);
-    } else {
-      PRINTF("readhex error %c\n", c);
-      return 0;
-    }
-  }
-  return num;
-}
-
 
 RESOURCE(mem, METHOD_GET | METHOD_PUT | METHOD_POST, "mem");
 void
@@ -113,30 +87,11 @@ mem_handler(REQUEST* request, RESPONSE* response)
 }
 
 
-RESOURCE(discover, METHOD_GET, ".well-known/core");
-void
-discover_handler(REQUEST* request, RESPONSE* response)
-{
-  int index = 0;
-  index += sprintf(temp + index, "%s,", "</id>;n=\"ID\"");
-  index += sprintf(temp + index, "%s,", "</led>;n=\"Led\"");
-  index += sprintf(temp + index, "%s,", "</button>;n=\"Button\"");
-  index += sprintf(temp + index, "%s,", "</temp>;n=\"Temperature\"");
-  index += sprintf(temp + index, "%s,", "</humidity>;n=\"Humidity\"");
-  index += sprintf(temp + index, "%s,", "</pressure>;n=\"Pressure\"");
-  index += sprintf(temp + index, "%s,", "</mem>;n=\"Memory\"");
-
-  rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
-  rest_set_header_content_type(response, APPLICATION_LINK_FORMAT);
-}
-
-
 RESOURCE(id, METHOD_GET, "id");
 void
 id_handler(REQUEST* request, RESPONSE* response)
 {
   sprintf(temp,"Flexibity THAP version 0.1\n");
-
   rest_set_header_content_type(response, TEXT_PLAIN);
   rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
 }
@@ -146,7 +101,7 @@ RESOURCE(button, METHOD_GET, "button");
 void
 button_handler(REQUEST* request, RESPONSE* response)
 {
-  int val = button_sensor.value(0);
+  int val = button();
   if (val) {
     sprintf(temp, "On\n");
   } else {
@@ -208,10 +163,8 @@ RESOURCE(temp, METHOD_GET, "temp");
 void
 temp_handler(REQUEST* request, RESPONSE* response)
 {
-  int val = sht21_sensor.value(SHT21_SENSOR_TEMP);
-
-  sprintf(temp, "%i.%i\n", val/100, val%100);
-
+  int val = sht21_temp();
+  sprintf(temp, "%i.%i C\n", val/100, val%100);
   rest_set_header_content_type(response, TEXT_PLAIN);
   rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
 }
@@ -221,10 +174,8 @@ RESOURCE(humidity, METHOD_GET, "humidity");
 void
 humidity_handler(REQUEST* request, RESPONSE* response)
 {
-  int val = sht21_sensor.value(SHT21_SENSOR_HUMIDITY);
-
-  sprintf(temp, "%i.%i\n", val/100, val%100);
-
+  int val = sht21_humidity();
+  sprintf(temp, "%i.%i %%\n", val/100, val%100);
   rest_set_header_content_type(response, TEXT_PLAIN);
   rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
 }
@@ -234,10 +185,8 @@ RESOURCE(pressure, METHOD_GET, "pressure");
 void
 pressure_handler(REQUEST* request, RESPONSE* response)
 {
-  int val = mpl115a2_sensor.value(MPL115A2_SENSOR_PRESSURE);
-
-  sprintf(temp, "%i\n", val);
-
+  int32_t val = mpl115a2_pressure();
+  sprintf(temp, "%i.%i mb\n", val/100, val%100);
   rest_set_header_content_type(response, TEXT_PLAIN);
   rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
 }
@@ -248,10 +197,6 @@ AUTOSTART_PROCESSES(&flexibity_thap);
 PROCESS_THREAD(flexibity_thap, ev, data)
 {
   PROCESS_BEGIN();
-  SENSORS_ACTIVATE(battery_sensor);
-  SENSORS_ACTIVATE(button_sensor);
-  SENSORS_ACTIVATE(sht21_sensor);
-  SENSORS_ACTIVATE(mpl115a2_sensor);
 
 #ifdef WITH_COAP
   PRINTF("COAP Server\n");
@@ -268,7 +213,8 @@ PROCESS_THREAD(flexibity_thap, ev, data)
   rest_activate_resource(&resource_led);
   rest_activate_resource(&resource_button);
   rest_activate_resource(&resource_id);
-  rest_activate_resource(&resource_discover);
+
+  PRINTF("Started\n");
 
   PROCESS_END();
 }

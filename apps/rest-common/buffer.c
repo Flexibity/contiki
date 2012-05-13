@@ -10,7 +10,8 @@
 #include <stdint.h>
 #include "buffer.h"
 
-uint8_t* data_buffer;
+
+uint8_t data_buffer[600];
 uint16_t buffer_size;
 uint16_t buffer_index;
 
@@ -18,8 +19,8 @@ void
 delete_buffer(void)
 {
   if (data_buffer) {
-    free(data_buffer);
-    data_buffer = NULL;
+//    free(data_buffer);
+//    data_buffer = NULL;
     buffer_index = 0;
     buffer_size = 0;
   }
@@ -29,7 +30,7 @@ uint8_t*
 init_buffer(uint16_t size)
 {
   delete_buffer();
-  data_buffer = (uint8_t*)malloc(size);
+//  data_buffer = (uint8_t*)malloc(size);
   if (data_buffer) {
     buffer_size = size;
   }

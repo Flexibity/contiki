@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012, Maxim Osipov <maxim.osipov@gmail.com>
- * Copyright (c) 2010, Swedish Institute of Computer Science.
+ * Copyright (c) 2006, Swedish Institute of Computer Science.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,17 +26,12 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
  */
 
-#ifndef __MPL115A2_SENSOR_H__
-#define __MPL115A2_SENSOR_H__
+#ifndef __READHEX_H__
+#define __READHEX_H__
 
-#include "lib/sensors.h"
+extern uint32_t readhex(char * str);
 
-extern const struct sensors_sensor mpl115a2_sensor;
-
-#define MPL115A2_SENSOR_TEMP		0
-#define MPL115A2_SENSOR_PRESSURE	1
-
-
-#endif /* __MPL115A2_SENSOR_H__ */
+#endif /* __READHEX_H__ */

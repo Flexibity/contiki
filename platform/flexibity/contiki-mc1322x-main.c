@@ -44,7 +44,6 @@
 #include "dev/serial-line.h"
 #include "dev/slip.h"
 #include "dev/xmem.h"
-#include "dev/button-sensor.h"
 #include "lib/random.h"
 #include "net/netstack.h"
 #include "net/mac/frame802154.h"
@@ -182,8 +181,6 @@ print_processes(struct process * const processes[])
 #endif
 }
 /*--------------------------------------------------------------------------*/
-
-SENSORS(&button_sensor);
 
 void
 init_lowlevel(void)
@@ -537,8 +534,6 @@ uint32_t p=(uint32_t)&__heap_end__-4;
   }
 #endif /* WITH_UIP */
 
-  process_start(&sensors_process, NULL);
-  
   print_processes(autostart_processes);
   autostart_start(autostart_processes);
  

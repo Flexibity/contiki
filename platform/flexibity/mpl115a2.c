@@ -26,16 +26,12 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * This file is part of the Contiki operating system.
- *
  */
 
 #include <stdlib.h>
-
+#include <stdio.h>
 #include "contiki.h"
-#include "lib/sensors.h"
-#include "dev/mpl115a2-sensor.h"
+#include "mpl115a2.h"
 #include "mc1322x.h"
 #include "i2c.h"
 
@@ -61,121 +57,62 @@
 #define START_PRESS_CONV	0x11
 #define START_BOTH_CONV		0x12
 
-
-enum {
-  ON, OFF
-};
-
-const struct sensors_sensor mpl115a2_sensor;
 static rtimer_clock_t mpl115a2_timer;
-static uint8_t state = OFF;
 static uint8_t buf[16];
 
-static int mpl115a2_temp();
-static int mpl115a2_pressure();
+static int16_t sia0, sib1, sib2, sic12, sic11, sic22;
+static int32_t si_c11x1, si_a11, si_c12x2, si_a1, si_c22x2, si_a2, si_a1x1, si_y1, si_a2x2, l1, l2, l3;
 
-static int
-value(int type)
+int32_t mpl115a2_pressure(void)
 {
-  int val = 0;
+  int32_t val;
+  uint16_t p, t;
 
-  switch (type) {
-    case MPL115A2_SENSOR_TEMP:
-      val = mpl115a2_temp();
-#ifdef DEBUG
-      printf("mpl115a2_temp: 0x%x\n", val);
-#endif
-      /* return temperature */
-      return val;
-    case MPL115A2_SENSOR_PRESSURE:
-      val = mpl115a2_pressure();
-#ifdef DEBUG
-      printf("mpl115a2_pressure: 0x%x\n", val);
-#endif
-      /* return barometric pressure */
-      return val;
-  }
+  i2c_enable();
 
-  return 0;
-}
-
-
-static int
-status(int type)
-{
-  switch (type) {
-    case SENSORS_ACTIVE:
-    case SENSORS_READY:
-      return (state == ON);
-  }
-
-  return 0;
-}
-
-
-static int
-configure(int type, int c)
-{
-  switch (type) {
-    case SENSORS_ACTIVE:
-      if (c) {
-        if (!status(SENSORS_ACTIVE)) {
-          i2c_enable();
-          state = ON;
-          /* For for about 15ms before the MPL115A2 can be used */
-          mpl115a2_timer = RTIMER_NOW();
-          while(RTIMER_CLOCK_LT(RTIMER_NOW(), mpl115a2_timer + (RTIMER_SECOND/1000)*15));
-        }
-      } else {
-        i2c_disable();
-        state = OFF;
-      }
-  }
-
-  return 0;
-}
-
-
-static int
-mpl115a2_temp()
-{
-  buf[0] = START_TEMP_CONV;
-  i2c_transmitinit(0x60, 1, buf);
-  while(!i2c_transferred()) ;
-
-  /* Wait for measurement about 1ms */
-  mpl115a2_timer = RTIMER_NOW();
-  while(RTIMER_CLOCK_LT(RTIMER_NOW(), mpl115a2_timer + (RTIMER_SECOND/1000)));
-
-  buf[0] = POUTH;
-  i2c_receiveinit(0x60, 1, buf);
+  buf[0] = START_BOTH_CONV;
+  buf[1] = 0x01;
   i2c_transmitinit(0x60, 2, buf);
   while(!i2c_transferred()) ;
 
-  return (int)(buf[0]<<8 | buf[1]);
-}
-
-
-static int
-mpl115a2_pressure()
-{
-  buf[0] = START_PRESS_CONV;
-  i2c_transmitinit(0x60, 1, buf);
-  while(!i2c_transferred()) ;
-
-  /* Wait for measurement about 1ms */
+  /* Wait for measurement about 6ms */
   mpl115a2_timer = RTIMER_NOW();
-  while(RTIMER_CLOCK_LT(RTIMER_NOW(), mpl115a2_timer + (RTIMER_SECOND/1000)));
+  while(RTIMER_CLOCK_LT(RTIMER_NOW(), mpl115a2_timer + (RTIMER_SECOND/1000)*6));
 
-  buf[0] = TOUTH;
+  /* Read data and coefficients it once */
+  buf[0] = POUTH;
   i2c_transmitinit(0x60, 1, buf);
-  i2c_receiveinit(0x60, 2, buf);
+  while(!i2c_transferred()) ;
+  i2c_receiveinit(0x60, 16, buf);
   while(!i2c_transferred()) ;
 
-  return (int)(buf[0]<<8 | buf[1]);
+  i2c_disable();
+
+  p = (buf[0]<<8 | buf[1])>>6;
+  t = (buf[2]<<8 | buf[3])>>6;
+  sia0 = (buf[4+0]<<8 | buf[4+1]);
+  sib1 = (buf[4+2]<<8 | buf[4+3]);
+  sib2 = (buf[4+4]<<8 | buf[4+5]);
+  sic12 = (buf[4+6]<<8 | buf[4+7]);
+  sic11 = (buf[4+8]<<8 | buf[4+9]);
+  sic22 = (buf[4+10]<<8 | buf[4+11]);
+
+  si_c11x1 = (int32_t)sic11 * (int32_t)p;
+  si_a11 = (((int32_t)sib1)<<14 + si_c11x1)>>14;
+  si_c12x2 = (int32_t)sic12 * (int32_t)t;
+  si_a1 = (si_a11<<11 + si_c12x2)>>11;
+  si_c22x2 = (int32_t)sic22 * (int32_t)t;
+  si_a2 = (((int32_t)sib2)<<15 + si_c22x2>>1)>>16;
+  si_a1x1 = si_a1 * (int32_t)p;
+  si_y1 = (((int32_t)sia0)<<10 + si_a1x1)>>10;
+  si_a2x2 = si_a2 * (int32_t)t;
+  l1 = ((int32_t)si_y1)<<10;
+  l2 = (int32_t)si_a2x2;
+  l3 = l1 + l2;
+
+  val = (int16_t)(l3>>13);
+  val = (65*100*10*val)/1023 + 50;
+
+  return val;
 }
-
-
-SENSORS_SENSOR(mpl115a2_sensor, "mpl115a2",
-	       value, configure, status);
 

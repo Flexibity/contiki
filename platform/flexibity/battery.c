@@ -1,6 +1,8 @@
 /*
  * Copyright (c) 2012, Maxim Osipov <maxim.osipov@gmail.com>
- * Copyright (c) 2010, Swedish Institute of Computer Science.
+ * Copyright (c) 2010, Mariano Alvira <mar@devl.org> and other contributors
+ * to the MC1322x project (http://mc1322x.devl.org) and Contiki.
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,17 +28,58 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * This file is part of the Contiki OS.
+ *
  */
 
-#ifndef __SHT21_SENSOR_H__
-#define __SHT21_SENSOR_H__
+#include "battery.h"
+#include "mc1322x.h"
+#include <signal.h>
+#include <clock.h>
+#include <timer.h>
 
-#include "lib/sensors.h"
+/*
+ * For now, a sensor is simple, polling only and without interrupts
+ */
+static struct timer adc_timer;
 
-extern const struct sensors_sensor sht21_sensor;
+int battery(void)
+{
+  int val = 0;
 
-#define SHT21_SENSOR_TEMP              0
-#define SHT21_SENSOR_HUMIDITY          1
+  /* ADC for power and water (ADC1/GPIO_31)
+   *   24MHz peripherial clock
+   *   300kHz ADC clock
+   *   1MHz prescale clock
+   */
+  ADC->CONTROLbits.ON = 0;
+  ADC->CONTROLbits.FIFO_IRQ_MASK = 0;
+  ADC->CONTROLbits.SEQ1_IRQ_MASK = 0;
+  ADC->CONTROLbits.SEQ2_IRQ_MASK = 0;
+  ADC->CONTROLbits.COMPARE_IRQ_MASK = 0;
+  ADC->CONTROLbits.AD1_VREFHL_EN = 0;
+  ADC->CONTROLbits.AD2_VREFHL_EN = 0;
+  ADC->CONTROLbits.TIMER1_ON = 0;
+  ADC->CONTROLbits.TIMER2_ON = 0;
+  ADC->CLOCK_DIVIDER = 0x0050;
+  ADC->PRESCALE = 0x17;
+  ADC->ON_TIME = 0x000a;
+  ADC->CONVERT_TIME = 0x0014;
+  ADC->OVERRIDEbits.MUX1 = 0x8;
+  ADC->OVERRIDEbits.AD1_ON = 1;
+  ADC->MODE = 1;
 
+  /* wait for ON (10us) + CONVERT (20us) time (x2 to be sure) */
+  timer_set(&adc_timer, (CLOCK_SECOND/1000)*60);
+  while (!timer_expired(&adc_timer));
 
-#endif /* __SHT21_SENSOR_H__ */
+  /* return % of 3.3V */
+  val = (ADC->RESULT_1 > 0) ? (int)((0xfff*1.2*100)/(val*3.3)) : 0;
+
+  ADC->CONTROLbits.ON = 0;
+  ADC->MODE = 0;
+
+  return val > 0 ? (int)((0xfff*1.2*100)/(val*3.3)) : 0;
+}
+

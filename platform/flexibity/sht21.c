@@ -26,98 +26,28 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * This file is part of the Contiki operating system.
- *
  */
 
 #include <stdlib.h>
-
 #include "contiki.h"
-#include "lib/sensors.h"
-#include "dev/sht21-sensor.h"
+#include "sht21.h"
 #include "mc1322x.h"
 #include "i2c.h"
 
 #define DEBUG
 
-enum {
-  ON, OFF
-};
-
-const struct sensors_sensor sht21_sensor;
 static rtimer_clock_t sht21_timer;
-static uint8_t state = OFF;
 static uint8_t buf[16];
 
-static int sht21_temp();
-static int sht21_humidity();
-
-static int
-value(int type)
+int sht21_temp(void)
 {
-  int val = 0;
+  int val;
 
-  switch (type) {
-    case SHT21_SENSOR_TEMP:
-      val = sht21_temp();
-#ifdef DEBUG
-      printf("sht21_temp: 0x%x\n", val);
-#endif
-      /* return temp * 100 (0.01 deg accuracy) */
-      return (-46.85 + (175.72*((val>>16)&0x0000fffc))/0x10000)*100;
-    case SHT21_SENSOR_HUMIDITY:
-      val = sht21_humidity();
-#ifdef DEBUG
-      printf("sht21_humidity: 0x%x\n", val);
-#endif
-      /* return relative humidity * 100 (0.04 % accuracy) */
-      return (-6.0 + (125.0*((val>>16)&0x0000fffc))/0x10000)*100;
-  }
+  i2c_enable();
+  /* For for about 15ms before the SHT11 can be used */
+  sht21_timer = RTIMER_NOW();
+  while(RTIMER_CLOCK_LT(RTIMER_NOW(), sht21_timer + (RTIMER_SECOND/1000)*15));
 
-  return 0;
-}
-
-
-static int
-status(int type)
-{
-  switch (type) {
-    case SENSORS_ACTIVE:
-    case SENSORS_READY:
-      return (state == ON);
-  }
-
-  return 0;
-}
-
-
-static int
-configure(int type, int c)
-{
-  switch (type) {
-    case SENSORS_ACTIVE:
-      if (c) {
-        if (!status(SENSORS_ACTIVE)) {
-          i2c_enable();
-          state = ON;
-          /* For for about 15ms before the SHT11 can be used */
-          sht21_timer = RTIMER_NOW();
-          while(RTIMER_CLOCK_LT(RTIMER_NOW(), sht21_timer + (RTIMER_SECOND/1000)*15));
-        }
-      } else {
-        i2c_disable();
-        state = OFF;
-      }
-  }
-
-  return 0;
-}
-
-
-static int
-sht21_temp()
-{
   buf[0] = 0xe3;
   i2c_transmitinit(0x40, 1, buf);
   while(!i2c_transferred()) ;
@@ -129,13 +59,23 @@ sht21_temp()
   i2c_receiveinit(0x40, 3, buf);
   while(!i2c_transferred()) ;
 
-  return (int)(buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3]);
+  val = (int)(buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3]);
+
+//  i2c_disable();
+  /* return temp * 100 (0.01 deg accuracy) */
+  return (-46.85 + (175.72*((val>>16)&0x0000fffc))/0x10000)*100;
 }
 
 
-static int
-sht21_humidity()
+int sht21_humidity(void)
 {
+  int val;
+
+  i2c_enable();
+  /* For for about 15ms before the SHT11 can be used */
+  sht21_timer = RTIMER_NOW();
+  while(RTIMER_CLOCK_LT(RTIMER_NOW(), sht21_timer + (RTIMER_SECOND/1000)*15));
+
   buf[0] = 0xe5;
   i2c_transmitinit(0x40, 1, buf);
   while(!i2c_transferred()) ;
@@ -147,10 +87,10 @@ sht21_humidity()
   i2c_receiveinit(0x40, 3, buf);
   while(!i2c_transferred()) ;
 
-  return (int)(buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3]);
+  val = (int)(buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3]);
+
+//  i2c_disable();
+  /* return relative humidity * 100 (0.04 % accuracy) */
+  return (-6.0 + (125.0*((val>>16)&0x0000fffc))/0x10000)*100;
 }
-
-
-SENSORS_SENSOR(sht21_sensor, "sht21",
-	       value, configure, status);
 

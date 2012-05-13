@@ -56,7 +56,7 @@ ARFLAGS      = cr
 
 #####
 
-include $(MC1322X)/board/Makefile.board
+#include $(MC1322X)/board/Makefile.board
 include $(MC1322X)/lib/Makefile.lib
 include $(MC1322X)/src/Makefile.src
 
