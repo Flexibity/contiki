@@ -92,8 +92,8 @@ PROCESS_THREAD(webserver_nogui_process, ev, data)
 }
 AUTOSTART_PROCESSES(&border_router_process,&webserver_nogui_process);
 
-static const char *TOP = "{ type: 'router'; version: 1;\n";
-static const char *BOTTOM = "\n}";
+static const char *TOP = "{ \"type\": \"router\", \"version\": 1,\n";
+static const char *BOTTOM = "\n}\n";
 static char buf[256];
 static int blen;
 #define ADD(...) do {                                                   \
@@ -134,13 +134,13 @@ PT_THREAD(generate_routes(struct httpd_state *s))
 
   SEND_STRING(&s->sout, TOP);
   blen = 0;
-  ADD("neighbors: {");
+  ADD("\"neighbours\": [");
   for(i = 0; i < UIP_DS6_NBR_NB; i++) {
     if(uip_ds6_nbr_cache[i].isused) {
 #if WEBSERVER_CONF_NEIGHBOR_STATUS
-      ADD("\n { addr: '");
+      ADD("\n { \"addr\": \"");
       ipaddr_add(&uip_ds6_nbr_cache[i].ipaddr);
-      ADD("'; state: '");
+      ADD("\", \"state\": \"");
       switch (uip_ds6_nbr_cache[i].state) {
       case NBR_INCOMPLETE: ADD("INCOMPLETE");break;
       case NBR_REACHABLE: ADD("REACHABLE");break;
@@ -148,7 +148,7 @@ PT_THREAD(generate_routes(struct httpd_state *s))
       case NBR_DELAY: ADD("DELAY");break;
       case NBR_PROBE: ADD("NBR_PROBE");break;
       }
-      ADD("';};");
+      ADD("\"},");
 #else
       ipaddr_add(&uip_ds6_nbr_cache[i].ipaddr);
 #endif
@@ -158,25 +158,27 @@ PT_THREAD(generate_routes(struct httpd_state *s))
       }
     }
   }
-  ADD("\n};\nroutes: {");
+  ADD("\n { \"addr\": \"::1\", \"state\": \"REACHABLE\" }"); /* Dummy entry */
+  ADD("\n],\n\"routes\": [");
   SEND_STRING(&s->sout, buf);
   blen = 0;
   for(i = 0; i < UIP_DS6_ROUTE_NB; i++) {
     if(uip_ds6_routing_table[i].isused) {
-      ADD("\n { addr: '");
+      ADD("\n { \"addr\": \"");
       ipaddr_add(&uip_ds6_routing_table[i].ipaddr);
-      ADD("/%u'; hop: '", uip_ds6_routing_table[i].length);
+      ADD("/%u\", \"hop\": \"", uip_ds6_routing_table[i].length);
       ipaddr_add(&uip_ds6_routing_table[i].nexthop);
-      ADD("';");
+      ADD("\",");
       if(1 || (uip_ds6_routing_table[i].state.lifetime < 600)) {
-        ADD(" life: %lu;", uip_ds6_routing_table[i].state.lifetime);
+        ADD(" \"life\": %lu", uip_ds6_routing_table[i].state.lifetime);
       }
       SEND_STRING(&s->sout, buf);
       blen = 0;
-      ADD(" };");
+      ADD(" },");
     }
   }
-  ADD("\n};");
+  ADD("\n { \"addr\": \"::1\", \"hop\": \"::1\", \"life\": 1 }"); /* Dummy entry */
+  ADD("\n]");
 
   SEND_STRING(&s->sout, buf);
   SEND_STRING(&s->sout, BOTTOM);
