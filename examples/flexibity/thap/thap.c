@@ -52,170 +52,34 @@
 #define PRINTF(...)
 #endif
 
-char temp[180];
+char buf[180];
 
-RESOURCE(mem, METHOD_GET | METHOD_PUT | METHOD_POST, "mem");
+RESOURCE(data, METHOD_GET, "index.html");
 void
-mem_handler(REQUEST* request, RESPONSE* response)
+data_handler(REQUEST* request, RESPONSE* response)
 {
-  char arg[16];
-  uint32_t addr, val;
-  int success = 1;
-  int ret;
-
-  ret = rest_get_query_variable(request, "addr", arg, 16);
-  if (ret) {
-    addr = readhex(arg);
-    ret = rest_get_query_variable(request, "val", arg, 16);
-    if (ret) {
-      val = readhex(arg);
-      *(uint16_t*)addr = (uint16_t)val;
-      sprintf(temp, "OK\n");
-    } else {
-      sprintf(temp, "0x%hx\n", *(uint16_t*)addr);
-    }
-  } else {
-    success = 0;
-  }
-
-  if (success) {
-    rest_set_header_content_type(response, TEXT_PLAIN);
-    rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
-  } else {
-    rest_set_response_status(response, BAD_REQUEST_400);
-  }
-}
-
-
-RESOURCE(id, METHOD_GET, "id");
-void
-id_handler(REQUEST* request, RESPONSE* response)
-{
-  sprintf(temp,"Flexibity THAP version 0.1\n");
-  rest_set_header_content_type(response, TEXT_PLAIN);
-  rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
-}
-
-
-RESOURCE(button, METHOD_GET, "button");
-void
-button_handler(REQUEST* request, RESPONSE* response)
-{
-  int val = button();
-  if (val) {
-    sprintf(temp, "On\n");
-  } else {
-    sprintf(temp, "Off\n");
-  }
+  int temp, hum, pres;
+  temp = sht21_temp();
+  hum = sht21_humidity();
+  pres = mpl115a2_pressure();
+  sprintf(buf, "{ \"type\": \"thap\", \"version\": 1, \"temp\": %i.%i, \"hum\": %i.%i, \"pres\": %i.%i }\n",
+	temp/100, temp%100, hum/100, hum%100, pres/100, pres%100);
 
   rest_set_header_content_type(response, TEXT_PLAIN);
-  rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
+  rest_set_response_payload(response, (uint8_t*)buf, strlen(buf));
 }
-
-
-RESOURCE(led, METHOD_GET | METHOD_POST | METHOD_PUT , "led");
-void
-led_handler(REQUEST* request, RESPONSE* response)
-{
-  char color[10];
-  char mode[10];
-  uint8_t led = 0;
-  int success = 1;
-  int ret;
-
-  ret = rest_get_query_variable(request, "color", color, 10);
-  if (ret) {
-    PRINTF("color %s\n", color);
-
-    if (!strcmp(color,"red")) {
-      led = LEDS_RED;
-    } else if(!strcmp(color,"green")) {
-      led = LEDS_GREEN;
-    } else {
-      success = 0;
-    }
-  } else {
-    success = 0;
-  }
-
-  ret = rest_get_query_variable(request, "mode", mode, 10);
-  if (success && ret) {
-    PRINTF("mode %s\n", mode);
-
-    if (!strcmp(mode, "on")) {
-      leds_on(led);
-    } else if (!strcmp(mode, "off")) {
-      leds_off(led);
-    } else {
-      success = 0;
-    }
-  } else {
-    success = 0;
-  }
-
-  if (!success) {
-    rest_set_response_status(response, BAD_REQUEST_400);
-  }
-}
-
-
-RESOURCE(temp, METHOD_GET, "temp");
-void
-temp_handler(REQUEST* request, RESPONSE* response)
-{
-  int val = sht21_temp();
-  sprintf(temp, "%i.%i C\n", val/100, val%100);
-  rest_set_header_content_type(response, TEXT_PLAIN);
-  rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
-}
-
-
-RESOURCE(humidity, METHOD_GET, "humidity");
-void
-humidity_handler(REQUEST* request, RESPONSE* response)
-{
-  int val = sht21_humidity();
-  sprintf(temp, "%i.%i %%\n", val/100, val%100);
-  rest_set_header_content_type(response, TEXT_PLAIN);
-  rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
-}
-
-
-RESOURCE(pressure, METHOD_GET, "pressure");
-void
-pressure_handler(REQUEST* request, RESPONSE* response)
-{
-  int32_t val = mpl115a2_pressure();
-  sprintf(temp, "%i.%i mb\n", val/100, val%100);
-  rest_set_header_content_type(response, TEXT_PLAIN);
-  rest_set_response_payload(response, (uint8_t*)temp, strlen(temp));
-}
-
 
 PROCESS(flexibity_thap, "THAP Server");
 AUTOSTART_PROCESSES(&flexibity_thap);
 PROCESS_THREAD(flexibity_thap, ev, data)
 {
   PROCESS_BEGIN();
-
-#ifdef WITH_COAP
-  PRINTF("COAP Server\n");
-#else
   PRINTF("HTTP Server\n");
-#endif
 
   rest_init();
-
-  rest_activate_resource(&resource_mem);
-  rest_activate_resource(&resource_pressure);
-  rest_activate_resource(&resource_humidity);
-  rest_activate_resource(&resource_temp);
-  rest_activate_resource(&resource_led);
-  rest_activate_resource(&resource_button);
-  rest_activate_resource(&resource_id);
+  rest_activate_resource(&resource_data);
 
   PRINTF("Started\n");
-
   PROCESS_END();
 }
 
