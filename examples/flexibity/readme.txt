@@ -16,10 +16,10 @@ All together, the sensor interface is provided by the following access points:
 {
   'type': 'string',
   'version': number,
-  'data': [
-    { 'name': 'unit' },
+  'data': {
+    'name': 'unit',
      ...
-  ]
+  }
   'action': [
     'name', ...
   ]
@@ -28,10 +28,8 @@ All together, the sensor interface is provided by the following access points:
 /data
 {
   'desc': (optional for push calls only),
-  'data': [
-    { 'name': value },
-    ...
-  ]
+  'name': value,
+  ...
 }
 
 /action?name=value

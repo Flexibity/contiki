@@ -54,16 +54,27 @@
 
 char buf[180];
 
-RESOURCE(data, METHOD_GET, "index.html");
+RESOURCE(desc, METHOD_GET, "desc");
+void
+desc_handler(REQUEST* request, RESPONSE* response)
+{
+  sprintf(buf, "{ \"type\": \"THAP\", \"version\": 1, \"data\": { \"bat\": \"%%\", \"temp\": \"C\", \"hum\": \"%%\", \"pres\": \"mbar\" } }\n");
+
+  rest_set_header_content_type(response, TEXT_PLAIN);
+  rest_set_response_payload(response, (uint8_t*)buf, strlen(buf));
+}
+
+RESOURCE(data, METHOD_GET, "data");
 void
 data_handler(REQUEST* request, RESPONSE* response)
 {
-  int temp, hum, pres;
+  int temp, hum, pres, bat;
   temp = sht21_temp();
   hum = sht21_humidity();
   pres = mpl115a2_pressure();
-  sprintf(buf, "{ \"type\": \"thap\", \"version\": 1, \"temp\": %i.%i, \"hum\": %i.%i, \"pres\": %i.%i }\n",
-	temp/100, temp%100, hum/100, hum%100, pres/100, pres%100);
+  bat = battery();
+  sprintf(buf, "{ \"bat\": %i, \"temp\": %i.%i, \"hum\": %i.%i, \"pres\": %i.%i }\n",
+	bat, temp/100, temp%100, hum/100, hum%100, pres/100, pres%100);
 
   rest_set_header_content_type(response, TEXT_PLAIN);
   rest_set_response_payload(response, (uint8_t*)buf, strlen(buf));
@@ -77,6 +88,7 @@ PROCESS_THREAD(flexibity_thap, ev, data)
   PRINTF("HTTP Server\n");
 
   rest_init();
+  rest_activate_resource(&resource_desc);
   rest_activate_resource(&resource_data);
 
   PRINTF("Started\n");

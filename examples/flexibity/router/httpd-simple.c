@@ -149,7 +149,7 @@ PT_THREAD(handle_output(struct httpd_state *s))
 }
 /*---------------------------------------------------------------------------*/
 const char http_get[] = "GET ";
-const char http_index_html[] = "/index.html";
+const char http_index_html[] = "/data";
 //const char http_referer[] = "Referer:"
 static
 PT_THREAD(handle_input(struct httpd_state *s))
