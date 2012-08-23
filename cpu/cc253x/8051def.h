@@ -14,6 +14,16 @@
 
 #include <stdint.h>
 
+/* In watchdog mode, our WDT can't be stopped once started
+ * Include watchdog_stop()'s declaration and then trash it */
+#include "dev/watchdog.h"
+#define watchdog_stop() watchdog_periodic()
+
+/* This port no longer implements the legacy clock_delay. Hack its usages
+ * outta the way till it gets phased out completely
+ * NB: This also overwrites the prototype so delay_usec() is declared twice */
+#define clock_delay(t) clock_delay_usec(t)
+
 /*
  * lint - style defines to help syntax parsers with sdcc-specific 8051 code
  * They don't interfere with actual compilation
@@ -38,6 +48,13 @@
 #define CC_CONF_UNSIGNED_CHAR_BUGS	0
 #define CC_CONF_REGISTER_ARGS		0
 #define CC_CONF_FUNCTION_POINTER_KEYWORD __reentrant
+#define CC_CONF_NON_BANKED_OPTIMIZATION 1
+
+#if (defined(__SDCC_mcs51) || defined(SDCC_mcs51)) && CC_CONF_NON_BANKED_OPTIMIZATION
+#define CC_NON_BANKED __nonbanked
+#else
+#define CC_NON_BANKED
+#endif
 
 /* Generic types. */
 typedef unsigned short uip_stats_t;

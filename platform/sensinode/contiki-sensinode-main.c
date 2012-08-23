@@ -72,7 +72,7 @@ static unsigned long irq_energest = 0;
 #endif
 /*---------------------------------------------------------------------------*/
 static void
-fade(int l)
+fade(int l) CC_NON_BANKED
 {
   volatile int i, a;
   int k, j;
@@ -91,7 +91,7 @@ fade(int l)
 }
 /*---------------------------------------------------------------------------*/
 static void
-set_rime_addr(void)
+set_rime_addr(void) CC_NON_BANKED
 {
   uint8_t *addr_long = NULL;
   uint16_t addr_short = 0;
@@ -371,7 +371,7 @@ main(void)
        * On occasion the XOSC is reported stable when in reality it's not.
        * We need to wait for a safeguard of 64us or more before selecting it
        */
-      clock_delay(10);
+      clock_delay_usec(65);
       while(CLKCON & OSC);         /* Wait till it's happened */
     }
 #endif /* LPM_MODE==LPM_MODE_PM2 */

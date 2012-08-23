@@ -46,6 +46,7 @@
 
 #include "net/packetbuf.h"
 #include "net/rime/rimestats.h"
+#include "net/rime/rimeaddr.h"
 #include "net/netstack.h"
 
 #include <string.h>
@@ -89,6 +90,8 @@
 /* Bit Masks for the last byte in the RX FIFO */
 #define CRC_BIT_MASK 0x80
 #define LQI_BIT_MASK 0x7F
+/* RSSI Offset */
+#define RSSI_OFFSET    73
 
 /* 192 ms, radio off -> on interval */
 #define ONOFF_TIME                    RTIMER_ARCH_SECOND / 3125
@@ -142,13 +145,18 @@ cc2530_rf_power_set(uint8_t new_power)
 void
 cc2530_rf_set_addr(uint16_t pan)
 {
+#if RIMEADDR_SIZE==8 /* EXT_ADDR[7:0] is ignored when using short addresses */
+  int i;
+  for(i = (RIMEADDR_SIZE - 1); i >= 0; --i) {
+    ((uint8_t *)&EXT_ADDR0)[i] = rimeaddr_node_addr.u8[RIMEADDR_SIZE - 1 - i];
+  }
+#endif
+
   PAN_ID0 = pan & 0xFF;
   PAN_ID1 = pan >> 8;
 
-  SHORT_ADDR0 = ((uint8_t *)&X_IEEE_ADDR)[0];
-  SHORT_ADDR1 = ((uint8_t *)&X_IEEE_ADDR)[1];
-
-  memcpy(&EXT_ADDR0, &X_IEEE_ADDR, 8);
+  SHORT_ADDR0 = rimeaddr_node_addr.u8[RIMEADDR_SIZE - 1];
+  SHORT_ADDR1 = rimeaddr_node_addr.u8[RIMEADDR_SIZE - 2];
 }
 /*---------------------------------------------------------------------------*/
 /* Netstack API radio driver functions */
@@ -162,7 +170,7 @@ init(void)
     return 0;
   }
 
-#ifdef CC2530_RF_LOW_POWER_RX
+#if CC2530_RF_LOW_POWER_RX
   /* Reduce RX power consumption current to 20mA at the cost of sensitivity */
   RXCTRL = 0x00;
   FSCTRL = 0x50;
@@ -281,7 +289,7 @@ transmit(unsigned short transmit_len)
 
   counter = 0;
   while(!(FSMSTAT1 & FSMSTAT1_TX_ACTIVE) && (counter++ < 3)) {
-    clock_delay(10);
+    clock_delay_usec(6);
   }
 
   if(!(FSMSTAT1 & FSMSTAT1_TX_ACTIVE)) {
@@ -379,7 +387,7 @@ read(void *buf, unsigned short bufsize)
   PUTSTRING("\n");
 
   /* Read the RSSI and CRC/Corr bytes */
-  rssi = ((int8_t) RFD) - 45;
+  rssi = ((int8_t) RFD) - RSSI_OFFSET;
   crc_corr = RFD;
 
 #if CC2530_RF_CONF_HEXDUMP
@@ -467,7 +475,7 @@ off(void)
   CC2530_CSP_ISRFOFF();
   CC2530_CSP_ISFLUSHRX();
 
-  rf_flags = 0;
+  rf_flags &= ~RX_ACTIVE;
 
   ENERGEST_OFF(ENERGEST_TYPE_LISTEN);
   return 1;
