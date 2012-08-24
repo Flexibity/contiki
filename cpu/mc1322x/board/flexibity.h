@@ -37,8 +37,8 @@
 #ifndef BOARD_FLEXIBITY_H
 #define BOARD_FLEXIBITY_H
 
-#define GPIO_LED_RED   GPIO_09
-#define GPIO_LED_GREEN GPIO_08
+#define GPIO_LED_RED   GPIO_08
+#define GPIO_LED_GREEN GPIO_09
 #define GPIO_LED_BLUE  GPIO_43	/* don't have a blue LED so we use IO43 */
 
 /* old defs. don't use these */
