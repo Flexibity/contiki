@@ -61,37 +61,77 @@ PROCESS(websense_process, "Websense (Flexibity)");
 AUTOSTART_PROCESSES(&websense_process);
 
 static int
-output_sensor(struct jsontree_context *path)
+output_temp(struct jsontree_context *path)
 {
   char buf[64];
   int tmp;
 
-  /*tmp = sht21_temp();*/
-
-  /*sprintf(buf, "%i.%i", tmp/100, tmp%100);*/
-  sprintf(buf, "10.5");
+  tmp = sht21_temp();
+  sprintf(buf, "%i.%i", tmp/100, tmp%100);
   jsontree_write_atom(path, buf);
   return 0;
 }
-static struct jsontree_callback sensor_callback =
-  JSONTREE_CALLBACK(output_sensor, NULL);
+
+static int
+output_hum(struct jsontree_context *path)
+{
+  char buf[64];
+  int tmp;
+
+  tmp = sht21_humidity();
+  sprintf(buf, "%i.%i", tmp/100, tmp%100);
+  jsontree_write_atom(path, buf);
+  return 0;
+}
+
+static int
+output_pres(struct jsontree_context *path)
+{
+  char buf[64];
+  int tmp;
+
+  tmp = mpl115a2_pressure();
+  sprintf(buf, "%i.%i", tmp/100, tmp%100);
+  jsontree_write_atom(path, buf);
+  return 0;
+}
+
+static struct jsontree_callback temp_callback =
+  JSONTREE_CALLBACK(output_temp, NULL);
+
+static struct jsontree_callback hum_callback =
+  JSONTREE_CALLBACK(output_hum, NULL);
+
+static struct jsontree_callback pres_callback =
+  JSONTREE_CALLBACK(output_pres, NULL);
 
 /*---------------------------------------------------------------------------*/
 
 static struct jsontree_string desc = JSONTREE_STRING("Flexibity THAP");
-static struct jsontree_string unit = JSONTREE_STRING("Celcius");
+static struct jsontree_string temp_unit = JSONTREE_STRING("degC");
+static struct jsontree_string hum_unit = JSONTREE_STRING("%");
+static struct jsontree_string pres_unit = JSONTREE_STRING("mbar");
 
 JSONTREE_OBJECT(node_tree,
                 JSONTREE_PAIR("node-type", &desc),
                 JSONTREE_PAIR("time", &json_time_callback));
 
-JSONTREE_OBJECT(sensor_tree,
-                JSONTREE_PAIR("unit", &unit),
-                JSONTREE_PAIR("value", &sensor_callback));
+JSONTREE_OBJECT(temp_tree,
+                JSONTREE_PAIR("unit", &temp_unit),
+                JSONTREE_PAIR("value", &temp_callback));
+
+JSONTREE_OBJECT(hum_tree,
+                JSONTREE_PAIR("unit", &hum_unit),
+                JSONTREE_PAIR("value", &hum_callback));
+
+JSONTREE_OBJECT(pres_tree,
+                JSONTREE_PAIR("unit", &pres_unit),
+                JSONTREE_PAIR("value", &pres_callback));
 
 JSONTREE_OBJECT(rsc_tree,
-                JSONTREE_PAIR("temperature", &sensor_tree),
-                JSONTREE_PAIR("leds", &json_leds_callback));
+                JSONTREE_PAIR("temperature", &temp_tree),
+                JSONTREE_PAIR("humidity", &hum_tree),
+                JSONTREE_PAIR("pressure", &pres_tree));
 
 /* complete node tree */
 JSONTREE_OBJECT(tree,
@@ -106,7 +146,6 @@ JSONTREE_OBJECT(tree,
 struct jsontree_callback cosm_value_callback =
   JSONTREE_CALLBACK(output_sensor, NULL);
 #endif
-
 PROCESS_THREAD(websense_process, ev, data)
 {
   static struct etimer timer;
