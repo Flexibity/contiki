@@ -1,4 +1,6 @@
 /*
+ * Copyright (c) 2013, Maxim Osipov <maxim.osipov@flexibity.com>
+ *
  * Copyright (c) 2010, Mariano Alvira <mar@devl.org> and other contributors
  * to the MC1322x project (http://mc1322x.devl.org) and Contiki.
  *
@@ -36,14 +38,14 @@
 
 /**
  * \file
- *         Configuration for MC1322x hobby board based on 
- *         Configuration for sample STK 501 Contiki kernel
+ *         Configuration for Flexibity
  *
  * \author
  *         Originial by:
- *         Simon Barner <barner@in.tum.de
- *         This version by:
+ *         Simon Barner <barner@in.tum.de>
  *         Mariano Alvira <mar@devl.org>
+ *         This version by:
+ *         Maxim Osipov <maxim.osipov@flexibity.com>
  */
 
 #ifndef __CONTIKI_CONF_H__
@@ -56,8 +58,16 @@
 /* this is from cpu/mc1322x/board */
 #include "flexibity.h"
 
+/* Flexibity tune parameters */
+#define FLEXIBITY_CTUNE_4PF 1
+/* Coarse tune: add 0-15 pf (CTUNE is 4 bits) */
+#define FLEXIBITY_CTUNE 11
+/* Fine tune: add FTUNE * 156fF (FTUNE is 5bits) */
+#define FLEXIBITY_FTUNE 7
+
 /* Clock ticks per second */
 #define CLOCK_CONF_SECOND 100
+
 /* set to 1 to toggle the green led ever second */
 /* FIXME setting this will break the sensor button (and other gpio) */
 /* since leds_arch hits the entire gpio_data */
@@ -65,6 +75,9 @@
 
 #define CCIF
 #define CLIF
+
+#define CONSOLE_UART UART1
+#define CONSOLE_BAUD 115200
 
 /* Baud rate */
 #define BRMOD 9999
@@ -76,7 +89,7 @@
 #define SAMP UCON_SAMP_8X
 //#define SAMP UCON_SAMP_16X
 
-#define uart_init uart1_init
+/*#define uart_init uart1_init*/
 #define dbg_putchar(x) uart1_putc(x)
 
 #define USE_FORMATTED_STDIO         1

@@ -125,6 +125,7 @@ static
 PT_THREAD(generate_routes(struct httpd_state *s))
 {
   static int i;
+  static uip_ds6_route_t *r;
 #if WEBSERVER_CONF_LOADTIME
   static clock_time_t numticks;
   numticks = clock_time();
@@ -162,20 +163,18 @@ PT_THREAD(generate_routes(struct httpd_state *s))
   ADD("\n],\n\"routes\": [");
   SEND_STRING(&s->sout, buf);
   blen = 0;
-  for(i = 0; i < UIP_DS6_ROUTE_NB; i++) {
-    if(uip_ds6_routing_table[i].isused) {
-      ADD("\n { \"addr\": \"");
-      ipaddr_add(&uip_ds6_routing_table[i].ipaddr);
-      ADD("/%u\", \"hop\": \"", uip_ds6_routing_table[i].length);
-      ipaddr_add(&uip_ds6_routing_table[i].nexthop);
-      ADD("\",");
-      if(1 || (uip_ds6_routing_table[i].state.lifetime < 600)) {
-        ADD(" \"life\": %lu", uip_ds6_routing_table[i].state.lifetime);
-      }
-      SEND_STRING(&s->sout, buf);
-      blen = 0;
-      ADD(" },");
+  for(r = uip_ds6_route_list_head(); r != NULL; r = list_item_next(r)) {
+    ADD("\n { \"addr\": \"");
+    ipaddr_add(&r->ipaddr);
+    ADD("/%u\", \"hop\": \"", r->length);
+    ipaddr_add(&r->nexthop);
+    ADD("\",");
+    if(1 || (r->state.lifetime < 600)) {
+      ADD(" \"life\": %lu", r->state.lifetime);
     }
+    SEND_STRING(&s->sout, buf);
+    blen = 0;
+    ADD(" },");
   }
   ADD("\n { \"addr\": \"::1\", \"hop\": \"::1\", \"life\": 1 }"); /* Dummy entry */
   ADD("\n]");
