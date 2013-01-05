@@ -559,7 +559,8 @@ void insert_at_rx_head(volatile packet_t *p) {
 	} else {
 		rx_head->right = p;
 		p->left = rx_head;
-		rx_head = p; rx_head->left = 0;
+		p->right = 0;
+		rx_head = p;
 	}
 
 //	print_packets("insert at rx head");
@@ -932,7 +933,9 @@ void radio_init(void) {
 	volatile uint32_t i;
 	/* sequence 1 */
 	for(i=0; i<MAX_SEQ1; i++) {
-		*(volatile uint32_t *)(addr_seq1[i]) = data_seq1[i];
+		if((unsigned int)addr_seq1[i] != (unsigned int)CRM_VREG_CNTL) {
+			*(volatile uint32_t *)(addr_seq1[i]) = data_seq1[i];
+		}
 	}
 	/* seq 1 delay */
 	for(i=0; i<0x161a8; i++) { continue; }
@@ -960,7 +963,9 @@ void radio_init(void) {
 	}
 	/* cal 5 */
 	for(i=0; i<MAX_CAL5; i++) {
-		*(volatile uint32_t *)(addr_cal5[i]) = data_cal5[i];
+		if((unsigned int)addr_cal5[i] != (unsigned int)CRM_VREG_CNTL) {
+			*(volatile uint32_t *)(addr_cal5[i]) = data_cal5[i];
+		}
 	}
 	/*reg replacment */
 	for(i=0; i<MAX_DATA; i++) {
@@ -968,12 +973,6 @@ void radio_init(void) {
 	}
 	
 	PRINTF("initfromflash\n\r");
-
-	*(volatile uint32_t *)(0x80003048) = 0x00000f04; /* bypass the buck */
-	for(i=0; i<0x161a8; i++) { continue; } /* wait for the bypass to take */
-//	while((((*(volatile uint32_t *)(0x80003018))>>17) & 1) !=1) { continue; } /* wait for the bypass to take */
-	*(volatile uint32_t *)(0x80003048) = 0x00000fa4; /* start the regulators */
-	for(i=0; i<0x161a8; i++) { continue; } /* wait for the bypass to take */
 
 	init_from_flash(0x1F000);
 
@@ -1203,7 +1202,11 @@ uint32_t exec_init_entry(volatile uint32_t *entries, uint8_t *valbuf)
 		PRINTF("init_entry: address value pair - *0x%08x = 0x%08x\n\r",
 		       (unsigned int)entries[0],
 		       (unsigned int)entries[1]);
-		reg(entries[0]) = entries[1];
+		if ((unsigned int)entries[0] !=  (unsigned int)CRM_VREG_CNTL) {
+			reg(entries[0]) = entries[1];
+		} else {
+			PRINTF("skipping VREG_CNTL\n\r");
+		}
 		return 2;
 	}
 }
